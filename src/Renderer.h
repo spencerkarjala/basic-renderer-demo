@@ -26,7 +26,7 @@ class Renderer {
     void drawGridDepth(Grid* grid);
     void drawGridWidth(Grid* grid);
     void drawCell(Coordinate position);
-    void drawRobotArm();
+    void drawRobotArm(Grid* grid);
     void debugPrintModelView();
     void debugPrintProjection();
 };

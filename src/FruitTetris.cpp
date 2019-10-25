@@ -44,7 +44,10 @@ void initGlutSettings() {
     
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    gluLookAt(0, 23, 25, 0, 10, 0, 0, 1, 0);
+    gluLookAt(2.0f, 1.0f, 3.0f,
+              0.0f, 0.0f, 0.0f,
+              0.0f, 1.0f, 0.0f);
+    // gluLookAt(0, 23, 25, 0, 10, 0, 0, 1, 0);
 }
 
 // Ends the game in the case where the player has run out of room to place blocks
@@ -298,8 +301,32 @@ int main(int argc, char** argv) {
     gridSize.width  = 10;
     gridSize.height = 20;
     gridSize.depth  = 1;
-    
-    grid = new Grid(20, 10, gridSize, origin);
+
+    GLfloat vertices[] = {
+        -0.5f, -0.5f, -0.5f,
+        -0.5f, -0.5f,  0.5f,
+        -0.5f,  0.5f, -0.5f,
+        -0.5f,  0.5f,  0.5f,
+         0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f,  0.5f,
+         0.5f,  0.5f, -0.5f,
+         0.5f,  0.5f,  0.5f
+    };
+
+    GLuint indices[] = {
+        0, 1, 3,
+        0, 2, 3,
+        0, 1, 5,
+        0, 4, 5,
+        0, 2, 6,
+        0, 4, 6,
+        7, 3, 2,
+        7, 6, 2,
+        7, 3, 1,
+        7, 5, 1,
+        7, 5, 4,
+        7, 6, 4
+    };
 
     // Seed the random number generator with system clock
     srand(time(NULL));
@@ -330,6 +357,65 @@ int main(int argc, char** argv) {
         printf("glew not ok\n");
         exit(1);
     }
+
+    // todo: add error handling stuff for glew shader calls
+
+    const GLchar* abc = "test.vert";
+    const GLchar* def = "test.frag";
+
+    // init shader programs
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &abc, NULL);
+    glCompileShader(vertexShader);
+    int success;
+    char infoLog[512];
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetProgramInfoLog(vertexShader, 512, NULL, infoLog);
+        std::cout << "err\n" << infoLog << std::endl;
+    }
+
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &def, NULL);
+    glCompileShader(fragmentShader);
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success) {
+        glGetProgramInfoLog(fragmentShader, 512, NULL, infoLog);
+        std::cout << "err\n" << infoLog << std::endl;
+    }
+
+    GLuint shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+    glUseProgram(shaderProgram);
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+    
+    // Initialize grid object shaders
+    grid = new Grid(20, 10, gridSize, origin);
+
+    GLuint VBO, VAO, EBO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glGenBuffers(1, &EBO);
+
+    glBindVertexArray(VAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    grid->setVAO(VAO);
+    grid->setShader(shaderProgram);
 
 
     // Call the main loop for GLUT

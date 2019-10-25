@@ -11,10 +11,10 @@ Renderer::~Renderer() {}
 // Draws the game board with all lines, fruits, and tetrominoes
 void Renderer::draw(Board* gameBoard, Grid* grid) {
 
-    this->drawTetrominoTrace(gameBoard);
-    this->drawFruit(gameBoard);
+    // this->drawTetrominoTrace(gameBoard);
+    // this->drawFruit(gameBoard);
     this->drawGrid(grid);
-    this->drawRobotArm();
+    this->drawRobotArm(grid);
 }
 
 // Draws a given fruit on the game board
@@ -48,10 +48,10 @@ void Renderer::drawGrid(Grid* grid) {
 
     this->drawAxes();
     
-    glColor4f(1.0, 1.0, 1.0, 0.3);
-    this->drawGridHeight(grid);
-    this->drawGridWidth(grid);
-    this->drawGridDepth(grid);
+    // glColor4f(1.0, 1.0, 1.0, 0.3);
+    // this->drawGridHeight(grid);
+    // this->drawGridWidth(grid);
+    // this->drawGridDepth(grid);
 }
 
 // Draws each fruit on the game board that isn't NULL
@@ -107,6 +107,9 @@ void Renderer::drawTetrominoTrace(Board* gameBoard) {
 // Draws the coordinate axes for debugging
 void Renderer::drawAxes() {
 
+    // Save the current attributes (color)
+    glPushAttrib(GL_CURRENT_BIT);
+
     glBegin(GL_LINES);
         // Draw the x-axis
         glColor4f(1.0, 0.0, 0.0, 1.0);
@@ -123,6 +126,9 @@ void Renderer::drawAxes() {
         glVertex3f(0, 0, -1000);
         glVertex3f(0, 0, 1000);
     glEnd();
+
+    // Restore attributes
+    glPopAttrib();
 }
 
 // Renders lines in the xy-plane in 3D
@@ -215,46 +221,12 @@ void Renderer::drawCell(Coordinate position) {
     glPopMatrix();
 }
 
-void Renderer::drawRobotArm() {
+void Renderer::drawRobotArm(Grid* grid) {
 
-    GLfloat vertices[] = {
-        -0.5f, -0.5f, -0.5f,
-        -0.5f, -0.5f,  0.5f,
-        -0.5f,  0.5f, -0.5f,
-        -0.5f,  0.5f,  0.5f,
-         0.5f, -0.5f, -0.5f,
-         0.5f, -0.5f,  0.5f,
-         0.5f,  0.5f, -0.5f,
-         0.5f,  0.5f,  0.5f
-    };
-
-    GLubyte indices[] = {
-        0, 1, 3,
-        0, 2, 3,
-        0, 1, 5,
-        0, 4, 5,
-        0, 2, 6,
-        0, 4, 6,
-        7, 3, 2,
-        7, 6, 2,
-        7, 3, 1,
-        7, 5, 1,
-        7, 5, 4,
-        7, 6, 4
-    };
-
-    // todo: add error handling stuff for glew shader calls
-
-    const GLchar* abc = "test.glsl";
-
-    GLuint VBO = 0;
-    glGenBuffersARB(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &abc, NULL);
-    glCompileShader(vertexShader);
-    int success;
+    glUseProgram(grid->getShader());
+    glBindVertexArray(grid->getVAO());
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+    glBindVertexArray(0);
 }
 
 // Used for debugging - prints modelView matrix
