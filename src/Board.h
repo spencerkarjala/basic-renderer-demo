@@ -39,7 +39,7 @@ class Board {
     void setPosition(int newPositionX, int newPositionY);
 
     Color getGridColor();
-    void setGridColor(Color newGridColor);
+    void setGridColor(Color newGridColor); 
 
     Tetromino* getTetromino();
     void setTetromino(Tetromino* tetromino);

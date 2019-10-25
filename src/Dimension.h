@@ -4,6 +4,7 @@
 struct Dimension {
     float width;
     float height;
+    float depth;
 };
 
 #endif

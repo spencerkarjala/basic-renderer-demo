@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include "Board.h"
 
-// Simple local opration to add a coordinate and a vector
+// Simple local operation to add a coordinate and a vector
 Coordinate operator+(const Coordinate& A, Vector B) {
     Coordinate result;
     result.x = A.x + B.getMagnitude() * Vector().cos(B.getDirection());

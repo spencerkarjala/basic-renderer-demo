@@ -1,27 +1,50 @@
+#include <GL/glew.h>
 #include <GL/glut.h>
+#include <glm/glm.hpp>
 #include <stdio.h>
 #include "GameInstance.h"
 #include "Board.h"
 #include "BoardMediator.h"
 #include "Renderer.h"
+#include "Grid.h"
 
 GameInstance gameState;
 Renderer renderer;
 BoardMediator boardMediator;
+Grid* grid;
+
+bool rotateL = false;
+bool rotateR = false;
 
 // Initialize settings used for GLUT drawing
 void initGlutSettings() {
 
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    const float W_WIDTH  = 480.0;
+    const float W_HEIGHT = 640.0;
+    const float FOV_Y    = 60.0;
+    const float Z_NEAR   = 0.1;
+    const float Z_FAR    = 100.0;
+
+    glutInitWindowSize(W_WIDTH, W_HEIGHT);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
+
     glutInitWindowPosition(50, 100);
-    glutInitWindowSize(400, 800);
     glutCreateWindow("Fruity Tetris Studio");
+
     glClearColor(0.0, 0.0, 0.0, 0.0);
     glEnable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthFunc(GL_LESS);
     glMatrixMode(GL_PROJECTION);
-    gluOrtho2D(0.0, 200.0, 0.0, 400.0);
     glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF);
+
+    glLoadIdentity();
+    gluPerspective(FOV_Y, W_WIDTH / W_HEIGHT, Z_NEAR, Z_FAR);
+    
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    gluLookAt(0, 23, 25, 0, 10, 0, 0, 1, 0);
 }
 
 // Ends the game in the case where the player has run out of room to place blocks
@@ -35,8 +58,8 @@ void endGame() {
     gameBoard->setCellsToGray();
 
     // Draw the newly greyed-out fruits on the game board
-    glClear(GL_COLOR_BUFFER_BIT);
-    renderer.draw(gameBoard);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    renderer.draw(gameBoard, grid);
     glutSwapBuffers();
 }
 
@@ -98,12 +121,19 @@ void playGame(void) {
                 moveTetrominoDown();
             }
 
+            if (rotateL) {
+                renderer.rotateWorldLeft(gameState.getBoard(), grid);
+            }
+            if (rotateR) {
+                renderer.rotateWorldRight(gameState.getBoard(), grid);
+            }
+
             // Allow for player key input
             gameState.toggleInputLock();
             
             // Draw the resulting game board
-            glClear(GL_COLOR_BUFFER_BIT);
-            renderer.draw(gameBoard);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            renderer.draw(gameBoard, grid);
             glutSwapBuffers();
         }
     }
@@ -206,6 +236,12 @@ void specialKeyCallbackUp(int keyPressed, int xMouse, int yMouse) {
             case GLUT_KEY_DOWN:         // Down arrow released => slow tetromino speed
                 slowDownTetrominoDrop();
                 break;
+            case GLUT_KEY_LEFT:
+                rotateL = false;
+                break;
+            case GLUT_KEY_RIGHT:
+                rotateR = false;
+                break;
         }
 
         // Unlock player key input
@@ -227,10 +263,20 @@ void specialKeyCallbackDown(int keyPressed, int xMouse, int yMouse) {
                 speedUpTetrominoDrop();
                 break;
             case GLUT_KEY_LEFT:         // Left arrow press => move tetromino left
-                moveTetrominoLeft();
+                if (glutGetModifiers() == GLUT_ACTIVE_CTRL) {
+                    rotateL = true;
+                }
+                else {
+                    moveTetrominoLeft();
+                }
                 break;
             case GLUT_KEY_RIGHT:        // Right arrow press => move tetromino right
-                moveTetrominoRight();
+                if (glutGetModifiers() == GLUT_ACTIVE_CTRL) {
+                    rotateR = true;
+                }
+                else {
+                    moveTetrominoRight();
+                }
                 break;
             case GLUT_KEY_UP:           // Up arrow press => rotate tetromino CCW
                 rotateTetrominoCCW();
@@ -243,6 +289,17 @@ void specialKeyCallbackDown(int keyPressed, int xMouse, int yMouse) {
 }
 
 int main(int argc, char** argv) {
+
+    Coordinate origin;
+    origin.x = 0;
+    origin.y = 0;
+
+    Dimension gridSize;
+    gridSize.width  = 10;
+    gridSize.height = 20;
+    gridSize.depth  = 1;
+    
+    grid = new Grid(20, 10, gridSize, origin);
 
     // Seed the random number generator with system clock
     srand(time(NULL));
@@ -261,6 +318,19 @@ int main(int argc, char** argv) {
     // Provide callbacks for key up/down arrow presses
     glutSpecialFunc(specialKeyCallbackDown);
     glutSpecialUpFunc(specialKeyCallbackUp);
+
+    // Compatibility thing for GLEW v2.0
+    glewExperimental = GL_TRUE;
+
+
+	if (glewInit() == GLEW_OK) {
+        printf("Using GLEW version %s.\n", glewGetString(GLEW_VERSION));
+    }
+    else {
+        printf("glew not ok\n");
+        exit(1);
+    }
+
 
     // Call the main loop for GLUT
     glutMainLoop();
