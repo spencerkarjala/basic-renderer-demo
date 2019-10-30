@@ -1,12 +1,13 @@
 #include <GL/glew.h>
-#include <GL/glut.h>
-#include <glm/glm.hpp>
+#include <GL/freeglut.h>
+#include <GL/freeglut_ext.h>
 #include <stdio.h>
 #include "GameInstance.h"
 #include "Board.h"
 #include "BoardMediator.h"
 #include "Renderer.h"
 #include "Grid.h"
+#include "Shader.h"
 
 GameInstance gameState;
 Renderer renderer;
@@ -25,11 +26,14 @@ void initGlutSettings() {
     const float Z_NEAR   = 0.1;
     const float Z_FAR    = 100.0;
 
-    glutInitWindowSize(W_WIDTH, W_HEIGHT);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-
+    glutInitWindowSize(W_WIDTH, W_HEIGHT);
     glutInitWindowPosition(50, 100);
+    glutInitContextVersion( 2, 1 );
+    glutInitContextProfile( GLUT_CORE_PROFILE );
     glutCreateWindow("Fruity Tetris Studio");
+
+    glewInit();
 
     glClearColor(0.0, 0.0, 0.0, 0.0);
     glEnable(GL_BLEND);
@@ -47,7 +51,7 @@ void initGlutSettings() {
     gluLookAt(2.0f, 1.0f, 3.0f,
               0.0f, 0.0f, 0.0f,
               0.0f, 1.0f, 0.0f);
-    // gluLookAt(0, 23, 25, 0, 10, 0, 0, 1, 0);
+    gluLookAt(0, 23, 25, 0, 10, 0, 0, 1, 0);
 }
 
 // Ends the game in the case where the player has run out of room to place blocks
@@ -360,37 +364,39 @@ int main(int argc, char** argv) {
 
     // todo: add error handling stuff for glew shader calls
 
-    const GLchar* abc = "test.vert";
-    const GLchar* def = "test.frag";
+    // const GLchar* abc = "test.vert";
+    // const GLchar* def = "test.frag";
 
-    // init shader programs
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &abc, NULL);
-    glCompileShader(vertexShader);
-    int success;
-    char infoLog[512];
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetProgramInfoLog(vertexShader, 512, NULL, infoLog);
-        std::cout << "err\n" << infoLog << std::endl;
-    }
+    Shader shader("./src/test.vert", "./src/test.frag");
 
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &def, NULL);
-    glCompileShader(fragmentShader);
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        glGetProgramInfoLog(fragmentShader, 512, NULL, infoLog);
-        std::cout << "err\n" << infoLog << std::endl;
-    }
+    // // init shader programs
+    // GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    // glShaderSource(vertexShader, 1, &abc, NULL);
+    // glCompileShader(vertexShader);
+    // int success;
+    // char infoLog[512];
+    // glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    // if (!success) {
+    //     glGetProgramInfoLog(vertexShader, 512, NULL, infoLog);
+    //     std::cout << "err\n" << infoLog << std::endl;
+    // }
 
-    GLuint shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram, vertexShader);
-    glAttachShader(shaderProgram, fragmentShader);
-    glLinkProgram(shaderProgram);
-    glUseProgram(shaderProgram);
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    // GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    // glShaderSource(fragmentShader, 1, &def, NULL);
+    // glCompileShader(fragmentShader);
+    // glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    // if (!success) {
+    //     glGetProgramInfoLog(fragmentShader, 512, NULL, infoLog);
+    //     std::cout << "err\n" << infoLog << std::endl;
+    // }
+
+    // GLuint shaderProgram = glCreateProgram();
+    // glAttachShader(shaderProgram, vertexShader);
+    // glAttachShader(shaderProgram, fragmentShader);
+    // glLinkProgram(shaderProgram);
+    // glUseProgram(shaderProgram);
+    // glDeleteShader(vertexShader);
+    // glDeleteShader(fragmentShader);
     
     // Initialize grid object shaders
     grid = new Grid(20, 10, gridSize, origin);
@@ -415,7 +421,7 @@ int main(int argc, char** argv) {
     glBindVertexArray(0);
 
     grid->setVAO(VAO);
-    grid->setShader(shaderProgram);
+    grid->setShader(shader.getID());
 
 
     // Call the main loop for GLUT

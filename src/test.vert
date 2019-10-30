@@ -1,6 +1,14 @@
-# version 450
-layout (location = 0) in vec3 aPos;
+#version 150 
 
-void main() {
-    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
-}
+in  vec4 vPosition;
+in  vec4 vColor;
+out vec4 color;
+
+uniform mat4 ModelView;
+uniform mat4 Projection;
+
+void main() 
+{
+    color = vColor;
+    gl_Position = Projection * ModelView * vPosition;
+} 
