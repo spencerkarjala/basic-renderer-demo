@@ -12,6 +12,7 @@
 #include "Shader.h"
 #include "string.h"
 #include "Camera.h"
+#include "ObjReader.h"
 
 #define BASE_HEIGHT 5
 #define BASE_WIDTH  10
@@ -515,6 +516,10 @@ int main(int argc, char** argv) {
     // Set up vertex buffers and vertex attribute arrays
     setAttributes();
     setVertexBuffers();
+
+    ObjReader reader;
+
+    std::vector<glm::vec4> vert = reader.readVertices("./src/grid.obj");
 
     // Go to GLUT main loop
     glutMainLoop();
