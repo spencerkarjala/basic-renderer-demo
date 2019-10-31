@@ -12,6 +12,8 @@ void getAndPrintError(GLuint shader, std::string error);
 //todo: add error handling for missing shaders
 Shader::Shader(const char* vertPath, const char* fragPath) {
 
+    this->ID = 0;
+
     // Read the shader's vertex and fragment filedata from disk
     std::string vertData = readFile(vertPath);
     std::string fragData = readFile(fragPath);
@@ -93,7 +95,7 @@ std::string readFile(const char* path) {
 // Returns 0 if an error is detected; other values otherwise
 GLint succeeded(GLuint shader, GLenum flag) {
 
-    GLint status;
+    GLint status = 1;
     glGetShaderiv(shader, flag, &status);
     return status;
 }

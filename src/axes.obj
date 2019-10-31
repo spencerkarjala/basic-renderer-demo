@@ -1,0 +1,16 @@
+# set coordinates for axes
+v   -0.01   0.00   0.00
+v    1.00  0.00    0.00
+v    0.00  -0.01   0.00
+v    0.00   1.00   0.00
+v    0.00   0.00  -0.01
+v    0.00   0.00   1.00
+
+# draw x axis
+l 1 2
+
+# draw y axis
+l 3 4
+
+# draw z axis
+l 5 6
