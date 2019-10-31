@@ -1,4 +1,5 @@
 #include <GL/glew.h>
+#include <GL/gl.h>
 #include <GL/freeglut.h>
 #include <GL/freeglut_ext.h>
 #include <stdio.h>
@@ -8,11 +9,20 @@
 #include "Renderer.h"
 #include "Grid.h"
 #include "Shader.h"
+#include "mat.h"
+
+#define BASE_HEIGHT 5
+#define BASE_WIDTH  10
 
 GameInstance gameState;
 Renderer renderer;
 BoardMediator boardMediator;
 Grid* grid;
+
+GLuint ModelView;
+GLuint Projection;
+
+mat4 model_view;
 
 bool rotateL = false;
 bool rotateR = false;
@@ -29,29 +39,23 @@ void initGlutSettings() {
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
     glutInitWindowSize(W_WIDTH, W_HEIGHT);
     glutInitWindowPosition(50, 100);
-    glutInitContextVersion( 2, 1 );
+    glutInitContextVersion( 3, 2 );
     glutInitContextProfile( GLUT_CORE_PROFILE );
+    glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF);
     glutCreateWindow("Fruity Tetris Studio");
 
-    glewInit();
+    // glDepthFunc(GL_LESS);
+    // glMatrixMode(GL_PROJECTION);
 
-    glClearColor(0.0, 0.0, 0.0, 0.0);
-    glEnable(GL_BLEND);
-    glEnable(GL_DEPTH_TEST);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glDepthFunc(GL_LESS);
-    glMatrixMode(GL_PROJECTION);
-    glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF);
-
-    glLoadIdentity();
-    gluPerspective(FOV_Y, W_WIDTH / W_HEIGHT, Z_NEAR, Z_FAR);
+    // glLoadIdentity();
+    // gluPerspective(FOV_Y, W_WIDTH / W_HEIGHT, Z_NEAR, Z_FAR);
     
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    gluLookAt(2.0f, 1.0f, 3.0f,
-              0.0f, 0.0f, 0.0f,
-              0.0f, 1.0f, 0.0f);
-    gluLookAt(0, 23, 25, 0, 10, 0, 0, 1, 0);
+    // glMatrixMode(GL_MODELVIEW);
+    // glLoadIdentity();
+    // gluLookAt(0.0f, 0.0f, -3.0f,
+    //           0.0f, 0.0f, 0.0f,
+    //           0.0f, 1.0f, 0.0f);
+    // gluLookAt(0, 23, 25, 0, 10, 0, 0, 1, 0);
 }
 
 // Ends the game in the case where the player has run out of room to place blocks
@@ -98,52 +102,78 @@ void moveTetrominoDown() {
     }
 }
 
+float index = 0;
+
 // Main game loop
 void playGame(void) {
 
-    // If the game isn't paused and hasn't ended, redraw the board
-    if (!gameState.isPaused() && !gameState.gameIsOver()) {
+    // glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+    // glClear(GL_COLOR_BUFFER_BIT);
+    // glUseProgram(grid->getShader());
+    // glBindVertexArray(grid->getVAO());
+    // glDrawArrays(GL_TRIANGLES, 0, 3);
+    // glutSwapBuffers();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        double currentTime     = gameState.getCurrentTime();
-        double nextRefreshTime = gameState.getNextRefreshTime();
+    mat4 instance = ( RotateZ(1.0 * index) * Translate( 0.0, 0.5 * BASE_HEIGHT, 0.0 ) *
+		 Scale( BASE_WIDTH,
+			BASE_HEIGHT,
+			BASE_WIDTH ) );
 
-        // Limits the frame rate to limit the necessary operations
-        if (currentTime >= nextRefreshTime) {
+            index++;
 
-            double refreshRate = gameState.getRefreshRate();
-            double currentTime = gameState.getCurrentTime();
-            Board* gameBoard   = gameState.getBoard();
-
-            // Lock player key input during critical tetromino calculations
-            gameState.toggleInputLock();
-            gameState.setNextRefreshTime(currentTime + refreshRate);
-
-            if (!gameBoard->tetrominoIsOnBoard()) {
-                restartTetromino();
-            }
-
-            // Drop the tetromino down one block if enough time has elapsed
-            if (currentTime >= gameState.getNextTickTime()) {
-                gameState.setNextTickTime(currentTime + gameState.getTickLength());
-                moveTetrominoDown();
-            }
-
-            if (rotateL) {
-                renderer.rotateWorldLeft(gameState.getBoard(), grid);
-            }
-            if (rotateR) {
-                renderer.rotateWorldRight(gameState.getBoard(), grid);
-            }
-
-            // Allow for player key input
-            gameState.toggleInputLock();
-            
-            // Draw the resulting game board
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            renderer.draw(gameBoard, grid);
-            glutSwapBuffers();
-        }
+    for (int i = 0; i < 4; i++) {
+        printf("%f\t%f\t%f\t%f\n", instance._m[i].x, instance._m[i].y, instance._m[i].z, instance._m[i].w);
     }
+    printf("\n");
+
+    glUniformMatrix4fv(ModelView, 1, GL_TRUE, model_view * instance);
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+    glutSwapBuffers();
+
+    // // If the game isn't paused and hasn't ended, redraw the board
+    // if (!gameState.isPaused() && !gameState.gameIsOver()) {
+
+    //     double currentTime     = gameState.getCurrentTime();
+    //     double nextRefreshTime = gameState.getNextRefreshTime();
+
+    //     // Limits the frame rate to limit the necessary operations
+    //     if (currentTime >= nextRefreshTime) {
+
+    //         double refreshRate = gameState.getRefreshRate();
+    //         double currentTime = gameState.getCurrentTime();
+    //         Board* gameBoard   = gameState.getBoard();
+
+    //         // Lock player key input during critical tetromino calculations
+    //         gameState.toggleInputLock();
+    //         gameState.setNextRefreshTime(currentTime + refreshRate);
+
+    //         if (!gameBoard->tetrominoIsOnBoard()) {
+    //             restartTetromino();
+    //         }
+
+    //         // Drop the tetromino down one block if enough time has elapsed
+    //         if (currentTime >= gameState.getNextTickTime()) {
+    //             gameState.setNextTickTime(currentTime + gameState.getTickLength());
+    //             moveTetrominoDown();
+    //         }
+
+    //         if (rotateL) {
+    //             renderer.rotateWorldLeft(gameState.getBoard(), grid);
+    //         }
+    //         if (rotateR) {
+    //             renderer.rotateWorldRight(gameState.getBoard(), grid);
+    //         }
+
+    //         // Allow for player key input
+    //         gameState.toggleInputLock();
+            
+    //         // Draw the resulting game board
+    //         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    //         renderer.draw(gameBoard, grid);
+    //         glutSwapBuffers();
+    //     }
+    // }
 }
 
 // Drop tetromino on the board to the lowest position it can reach vertically
@@ -295,6 +325,38 @@ void specialKeyCallbackDown(int keyPressed, int xMouse, int yMouse) {
     }
 }
 
+void redraw(int width, int height) {
+
+    //test this
+    glViewport( 0, 0, width, height );
+
+    GLfloat  left = -10.0, right = 10.0;
+    GLfloat  bottom = -5.0, top = 15.0;
+    GLfloat  zNear = -10.0, zFar = 10.0;
+
+    GLfloat aspect = GLfloat(width)/height;
+
+    if ( aspect > 1.0 ) {
+	left *= aspect;
+	right *= aspect;
+    }
+    else {
+	bottom /= aspect;
+	top /= aspect;
+    }
+
+    mat4 projection = Ortho( left, right, bottom, top, zNear, zFar );
+
+    // for (int i = 0; i < 4; i++) {
+    //     printf("%f\t%f\t%f\t%f\n", projection._m[i].x, projection._m[i].y, projection._m[i].z, projection._m[i].w);
+    // }
+    // printf("\n");
+
+    glUniformMatrix4fv( Projection, 1, GL_TRUE, projection );
+
+    model_view = mat4( 1.0 );  // An Identity matrix
+}
+
 int main(int argc, char** argv) {
 
     Coordinate origin;
@@ -306,42 +368,49 @@ int main(int argc, char** argv) {
     gridSize.height = 20;
     gridSize.depth  = 1;
 
-    GLfloat vertices[] = {
-        -0.5f, -0.5f, -0.5f,
-        -0.5f, -0.5f,  0.5f,
-        -0.5f,  0.5f, -0.5f,
-        -0.5f,  0.5f,  0.5f,
-         0.5f, -0.5f, -0.5f,
-         0.5f, -0.5f,  0.5f,
-         0.5f,  0.5f, -0.5f,
-         0.5f,  0.5f,  0.5f
-    };
-
-    GLuint indices[] = {
-        0, 1, 3,
-        0, 2, 3,
-        0, 1, 5,
-        0, 4, 5,
-        0, 2, 6,
-        0, 4, 6,
-        7, 3, 2,
-        7, 6, 2,
-        7, 3, 1,
-        7, 5, 1,
-        7, 5, 4,
-        7, 6, 4
-    };
-
     // Seed the random number generator with system clock
     srand(time(NULL));
 
-    // Initialize GLUT and init locally-defined GLUT settings
-    glutInit(&argc, argv);
-    initGlutSettings();
+    // // Initialize GLUT and init locally-defined GLUT settings
+    // glutInit(&argc, argv);
+    // initGlutSettings();
+
+    // // Compatibility thing for GLEW v2.0
+    // // glewExperimental = GL_TRUE;
+
+	// if (glewInit() == GLEW_OK) {
+    //     printf("Using GLEW version %s.\n", glewGetString(GLEW_VERSION));
+    // }
+    // else {
+    //     printf("glew not ok\n");
+    //     exit(1);
+    // }
+
+    glutInit( &argc, argv );
+    glutInitDisplayMode( GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH );
+    glutInitWindowSize( 512, 512 );
+    const GLubyte* glString = glGetString(GL_VERSION);
+    glutInitContextVersion( 3, 2 );
+    glutInitContextProfile( GLUT_CORE_PROFILE );
+    glutCreateWindow( "robot" );
+
+    // glewExperimental = GL_TRUE; 
+    glewInit();
+
+    
+    // Initialize grid object shaders
+    grid = new Grid(20, 10, gridSize, origin);
+    Shader shader("./src/test.vert", "./src/test.frag");
+    grid->setShader(shader.getID());
+
+    glClearColor(1.0, 1.0, 1.0, 1.0);
+    // glEnable(GL_BLEND);
+    // glEnable(GL_DEPTH_TEST);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // Provide the callback for window redrawing
     glutDisplayFunc(playGame);
-    glutIdleFunc(playGame);
+    glutReshapeFunc(redraw);
 
     // Provide the callback for ASCII key presses
     glutKeyboardFunc(regularKeyCallback);
@@ -350,79 +419,115 @@ int main(int argc, char** argv) {
     glutSpecialFunc(specialKeyCallbackDown);
     glutSpecialUpFunc(specialKeyCallbackUp);
 
-    // Compatibility thing for GLEW v2.0
-    glewExperimental = GL_TRUE;
+    // ---------------init stuff----------------------------
 
+    float vertices[] = {
+        -0.5f, -0.5f, 0.0f,
+        0.5f, -0.5f, 0.0f,
+        0.0f,  0.5f, 0.0f
+    }; 
 
-	if (glewInit() == GLEW_OK) {
-        printf("Using GLEW version %s.\n", glewGetString(GLEW_VERSION));
-    }
-    else {
-        printf("glew not ok\n");
-        exit(1);
-    }
-
-    // todo: add error handling stuff for glew shader calls
-
-    // const GLchar* abc = "test.vert";
-    // const GLchar* def = "test.frag";
-
-    Shader shader("./src/test.vert", "./src/test.frag");
-
-    // // init shader programs
-    // GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    // glShaderSource(vertexShader, 1, &abc, NULL);
-    // glCompileShader(vertexShader);
-    // int success;
-    // char infoLog[512];
-    // glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    // if (!success) {
-    //     glGetProgramInfoLog(vertexShader, 512, NULL, infoLog);
-    //     std::cout << "err\n" << infoLog << std::endl;
-    // }
-
-    // GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    // glShaderSource(fragmentShader, 1, &def, NULL);
-    // glCompileShader(fragmentShader);
-    // glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    // if (!success) {
-    //     glGetProgramInfoLog(fragmentShader, 512, NULL, infoLog);
-    //     std::cout << "err\n" << infoLog << std::endl;
-    // }
-
-    // GLuint shaderProgram = glCreateProgram();
-    // glAttachShader(shaderProgram, vertexShader);
-    // glAttachShader(shaderProgram, fragmentShader);
-    // glLinkProgram(shaderProgram);
-    // glUseProgram(shaderProgram);
-    // glDeleteShader(vertexShader);
-    // glDeleteShader(fragmentShader);
-    
-    // Initialize grid object shaders
-    grid = new Grid(20, 10, gridSize, origin);
-
-    GLuint VBO, VAO, EBO;
+    // Create a vertex array object
+    GLuint VAO;
     glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
-    glGenBuffers(1, &EBO);
-
     glBindVertexArray(VAO);
 
+    // Create a vertex buffer object
+    GLuint VBO;
+    glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(GLfloat), NULL, GL_STATIC_DRAW);
+    glUseProgram(shader.getID());
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+    // GLuint vPosition = glGetAttribLocation(shader.getID(), "vPosition");
+    // glEnableVertexAttribArray(vPosition);
+    // glVertexAttribPointer(vPosition, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0);
-    glEnableVertexAttribArray(0);
+    // GLuint vColor = glGetAttribLocation(shader.getID(), "vColor");
+    // glEnableVertexAttribArray(vColor);
+    // glVertexAttribPointer(vColor, 4, GL_FLOAT, GL_FALSE, 0, BUFFER_OFFSET(0));
+    
+    ModelView  = glGetUniformLocation(shader.getID(), "ModelView");
+    Projection = glGetUniformLocation(shader.getID(), "Projection");
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    glEnable(GL_DEPTH);
+    glClearColor(1.0, 1.0, 1.0, 1.0);
+    // -----------------------------------------------------
 
-    grid->setVAO(VAO);
-    grid->setShader(shader.getID());
 
+    // // Create a vertex array object
+    // GLuint VAO;
+    // glGenVertexArrays( 1, &VAO );
+    // glBindVertexArray( VAO );
+
+
+
+    // // Create and initialize a buffer object
+    // GLuint buffer;
+    // glGenBuffers( 1, &buffer );
+    // glBindBuffer( GL_ARRAY_BUFFER, buffer );
+    // glBufferData( GL_ARRAY_BUFFER, sizeof(vertices) + sizeof(colors),
+	// 	  NULL, GL_DYNAMIC_DRAW );
+    // glBufferSubData( GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices );
+    // glBufferSubData( GL_ARRAY_BUFFER, sizeof(vertices), sizeof(colors), colors );
+
+    // glUseProgram(shader.getID());
+    // #define BUFFER_OFFSET( offset )   ((GLvoid*) (offset))
+    // GLuint vPosition = glGetAttribLocation( shader.getID(), "vPosition" );
+    // glEnableVertexAttribArray( vPosition );
+    // glVertexAttribPointer( vPosition, 4, GL_FLOAT, GL_FALSE, 0,
+	// 		   BUFFER_OFFSET(0) );
+
+    // GLuint vColor = glGetAttribLocation( shader.getID(), "vColor" );
+    // glEnableVertexAttribArray( vColor );
+    // glVertexAttribPointer( vColor, 4, GL_FLOAT, GL_FALSE, 0,
+	// 		   BUFFER_OFFSET(sizeof(vertices)) );
+
+    // glEnable( GL_DEPTH );
+    // glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+
+
+    /*
+     *
+     * try # 2 failed */
+    // GLuint VBO, VAO;
+    // glGenVertexArrays(1, &VAO);
+    // glGenBuffers(1, &VBO);
+    // glBindVertexArray(VAO);
+    // glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    // glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    // glEnableVertexAttribArray(0);
+    
+
+
+    
+
+
+    /*
+     *
+     * try # 1 failed */
+    // GLuint VBO, VAO, EBO;
+    // glGenVertexArrays(1, &VAO);
+    // glGenBuffers(1, &VBO);
+    // glGenBuffers(1, &EBO);
+
+    // glBindVertexArray(VAO);
+
+    // glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    // glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    // glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    // glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0);
+    // glEnableVertexAttribArray(0);
+
+    // glBindBuffer(GL_ARRAY_BUFFER, 0);
+    // glBindVertexArray(0);
+
+    // grid->setVAO(VAO);
+    // grid->setShader(shader.getID());
 
     // Call the main loop for GLUT
     glutMainLoop();

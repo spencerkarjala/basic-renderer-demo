@@ -13,7 +13,7 @@ void Renderer::draw(Board* gameBoard, Grid* grid) {
 
     // this->drawTetrominoTrace(gameBoard);
     // this->drawFruit(gameBoard);
-    this->drawGrid(grid);
+    // this->drawGrid(grid);
     this->drawRobotArm(grid);
 }
 
@@ -223,10 +223,10 @@ void Renderer::drawCell(Coordinate position) {
 
 void Renderer::drawRobotArm(Grid* grid) {
 
-    glUseProgram(grid->getShader());
-    glBindVertexArray(grid->getVAO());
-    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-    glBindVertexArray(0);
+    // glUseProgram(grid->getShader());
+    // glBindVertexArray(grid->getVAO());
+    // glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+    // glBindVertexArray(0);
 }
 
 // Used for debugging - prints modelView matrix
