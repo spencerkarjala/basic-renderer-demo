@@ -16,12 +16,15 @@ class Camera {
     void setFOV(float fov);
     void setAspectRatio(float aspect);
     void setClippingPlanes(float zNear, float zFar);
+    void rotate(float angle, glm::vec3 axis);
 
     glm::mat4 getView();
     glm::mat4 getProjection();
 
     private:
-    glm::vec3 up, position, direction;
+
+    glm::mat4 view, projection;
+    glm::vec3 position, up, direction;
     float fov, aspect, zNear, zFar;
 };
 

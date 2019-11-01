@@ -13,6 +13,8 @@
 #include "string.h"
 #include "Camera.h"
 #include "ObjReader.h"
+#include "Axes.h"
+#include "Cube.h"
 
 #define BASE_HEIGHT 5
 #define BASE_WIDTH  10
@@ -25,25 +27,23 @@
 
 GLuint vPosition, vColor, Projection, ModelView;
 Grid* grid;
+Axes* axes;
+Cube* cube;
 Camera* camera;
+ObjReader reader;
+GameInstance gameState;
+Renderer renderer;
+BoardMediator boardMediator;
+
+int rotate = 0;
 
 glm::mat4 mProjection;
 glm::mat4 mModelView;
 
-GLuint program;
-
-// Vertices for the 3D axis
-float vertices[] = {
-    -1.0f,  0.0f,  0.0f,  1.0f,
-     99.0f, 0.0f,  0.0f,  1.0f,
-     0.0f, -1.0f, 0.0f,   1.0f,
-     0.0f,  99.0f, 0.0f,  1.0f,
-     0.0f,  0.0f, -1.0f,  1.0f,
-     0.0f,  0.0f,  99.0f, 1.0f
-};
+GLuint shader, VAO;
  
 // Vertex colors for the 3D axis
-float colors[] = {   
+std::vector<float> axisColors = {   
     1.0f, 0.0f, 0.0f, 1.0f,
     1.0f, 0.0f, 0.0f, 1.0f,
     0.0f, 1.0f, 0.0f, 1.0f,
@@ -52,36 +52,37 @@ float colors[] = {
     0.0f, 0.0f, 1.0f, 1.0f
 };
 
-// GameInstance gameState;
-// Renderer renderer;
-// BoardMediator boardMediator;
-// Grid* grid;
+std::vector<float> gridColors = {
+    0.0f, 0.0f, 0.0f, 1.0f
+};
 
-// GLuint ModelView;
-// GLuint Projection;
+std::vector<float> cubeColors = {
+    1.0f, 0.0f, 0.0f, 0.0f,
+    1.0f, 0.0f, 0.0f, 0.0f,
+    1.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f, 0.0f,
+    0.0f, 0.0f, 0.0f, 0.0f,
+    // 0.0f, 0.0f, 0.0f, 1.0f,
+    // 1.0f, 0.0f, 0.0f, 1.0f,
+    // 1.0f, 0.0f, 0.0f, 1.0f,
+    // 0.0f, 1.0f, 0.0f, 1.0f,
+    // 0.0f, 1.0f, 0.0f, 1.0f,
+    // 0.0f, 0.0f, 1.0f, 1.0f,
+    // 0.0f, 0.0f, 1.0f, 1.0f,
+    // 0.0f, 1.0f, 1.0f, 1.0f,
+    // 0.0f, 1.0f, 1.0f, 1.0f,
+    // 1.0f, 0.0f, 1.0f, 1.0f,
+    // 1.0f, 0.0f, 1.0f, 1.0f,
+    // 0.0f, 0.0f, 0.0f, 1.0f
+};
 
-// mat4 model_view;
-
-// bool rotateL = false;
-// bool rotateR = false;
-
-// // Initialize settings used for GLUT drawing
-// void initGlutSettings() {
-
-//     const float W_WIDTH  = 480.0;
-//     const float W_HEIGHT = 640.0;
-//     const float FOV_Y    = 60.0;
-//     const float Z_NEAR   = 0.1;
-//     const float Z_FAR    = 100.0;
-
-//     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH);
-//     glutInitWindowSize(W_WIDTH, W_HEIGHT);
-//     glutInitWindowPosition(50, 100);
-//     glutInitContextVersion( 3, 2 );
-//     glutInitContextProfile( GLUT_CORE_PROFILE );
-//     glutSetKeyRepeat(GLUT_KEY_REPEAT_OFF);
-//     glutCreateWindow("Fruity Tetris Studio");
-// }
 
 // // Ends the game in the case where the player has run out of room to place blocks
 // void endGame() {
@@ -352,21 +353,37 @@ float colors[] = {
 
 // Used to redraw the scene on each screen refresh
 void refresh(void) {
+
+    if (rotate != 0) {
+        camera->rotate(0.01f * rotate, glm::vec3(0.f, 1.f, 0.f));
+    }
     
     // Clear color and z-buffers
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
     // Calculate the model-view matrix
     mModelView = camera->getView();
-    mModelView = mModelView * glm::mat4x4(1.0f);
+    mModelView = mModelView * glm::mat4x4(1.f);
 
     // Set up the shader and the MVP matrices
-    glUseProgram(grid->getShader());
+    glUseProgram(shader);
     glUniformMatrix4fv(Projection, 1, false, glm::value_ptr(mProjection));
     glUniformMatrix4fv(ModelView,  1, false, glm::value_ptr(mModelView));
- 
-    glBindVertexArray(grid->getVAO());
-    glDrawArrays(GL_LINES, 0, 6);
+    glBindVertexArray(VAO);
+
+    glm::mat4 cubeModel = mModelView * cube->getModel();
+    glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(cubeModel));
+    cube->draw(GL_TRIANGLES);
+
+    glm::mat4 axesModel = mModelView * axes->getModel();
+    glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(axesModel));
+    axes->draw(GL_LINES);
+
+    glm::mat4 gridModel = mModelView * grid->getModel();
+    glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(gridModel));
+    grid->draw(GL_LINES);
+
+    glBindVertexArray(0);
  
     glutSwapBuffers();
 }
@@ -381,16 +398,19 @@ void reshape(int width, int height) {
 
     // Set up perspective matrix for the frustum
     mProjection = camera->getProjection();
+    
+    // Set model, view, and projection matrices
+    glUniformMatrix4fv(Projection, 1, GL_TRUE, glm::value_ptr(mProjection));
+    glUniformMatrix4fv(ModelView,  1, GL_TRUE, glm::value_ptr(mModelView));
 }
 
 // Closes the game, freeing any necessary data`
 void closeGame() {
-
-    const GLuint vaoToDelete = grid->getVAO();
-
-    glDeleteVertexArrays(1, &vaoToDelete);
+    glDeleteVertexArrays(1, &VAO);
     delete grid;
     delete camera;
+    delete axes;
+    delete cube;
     exit(0);
 }
 
@@ -403,6 +423,49 @@ void normalKeyListener(unsigned char key, int x, int y) {
         case 'q':
         case 'Q':
             closeGame();
+    }
+}
+
+// Provides the callback for any arrow key being pressed
+void specialKeyDownListener(int key, int x, int y) {
+
+    switch (key) {
+
+        case GLUT_KEY_DOWN:         // Down arrow press => fast tetromino speed
+            // speedUpTetrominoDrop();
+            break;
+        case GLUT_KEY_LEFT:         // Left arrow press => move tetromino left
+            if (glutGetModifiers() == GLUT_ACTIVE_CTRL) {
+                rotate = 1;
+            } else {
+                // moveTetrominoLeft();
+            }
+            break;
+        case GLUT_KEY_RIGHT:        // Right arrow press => move tetromino right
+            if (glutGetModifiers() == GLUT_ACTIVE_CTRL) {
+                rotate = -1;
+            } else {
+                // moveTetrominoRight();
+            }
+            break;
+        case GLUT_KEY_UP:           // Up arrow press => rotate tetromino CCW
+            // rotateTetrominoCCW();
+            break;
+    }
+}
+
+// Provides the callback for the release of the arrow keys
+void specialKeyUpListener(int key, int x, int y) {
+
+    switch (key) {
+
+        case GLUT_KEY_DOWN:         // Down arrow released => slow tetromino speed
+            // slowDownTetrominoDrop();
+            break;
+        case GLUT_KEY_LEFT:
+        case GLUT_KEY_RIGHT:
+            rotate = 0;
+            break;
     }
 }
 
@@ -419,52 +482,52 @@ void initGlutSettings() {
     glutDisplayFunc(refresh);
     glutReshapeFunc(reshape);
     glutKeyboardFunc(normalKeyListener);
+    glutSpecialFunc(specialKeyDownListener);
+    glutSpecialUpFunc(specialKeyUpListener);
     glutIdleFunc(refresh);
 }
 
 void setVertexBuffers() {
 
     // Initalize the vertex array object
-    GLuint VAO;
     glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
 
-    // Initialize the vertex buffer object for vertices and colors
-    GLuint vertexVBO, colorVBO;
-    glGenBuffers(1, &vertexVBO);
-    glGenBuffers(1, &colorVBO);
+    // Set up buffers for coordinate axes
+    axes->setupBuffers(
+        "./src/axes.obj",
+        "vPosition",
+        "vColor",
+        shader,
+        axisColors
+    );
 
-    // Bind buffers for both vertices and colors
-    glBindBuffer(GL_ARRAY_BUFFER, vertexVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
+    // Set up buffers for game grid
+    grid->setupBuffers(
+        "./src/grid.obj",
+        "vPosition",
+        "vColor",
+        shader,
+        gridColors
+    );
 
-    // Bind the buffer used for vertex data
-    glBindBuffer(GL_ARRAY_BUFFER, vertexVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    // Set up cube buffers
+    cube->setupBuffers(
+        "./src/cube.obj",
+        "vPosition",
+        "vColor",
+        shader,
+        cubeColors
+    );
 
-    // Reference the vertex buffer using a saved global attribute
-    vPosition = glGetAttribLocation( program, "vPosition");
-    glEnableVertexAttribArray(vPosition);
-    glVertexAttribPointer(vPosition, 4, GL_FLOAT, 0, 0, 0);
- 
-    // Bind the buffer used for vertex color data
-    glBindBuffer(GL_ARRAY_BUFFER, colorVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(colors), colors, GL_STATIC_DRAW);
-
-    // Reference the vertex color buffer using a saved global attribute
-    vColor     = glGetAttribLocation( program, "vColor"); 
-    glEnableVertexAttribArray(vColor);
-    glVertexAttribPointer(vColor, 4, GL_FLOAT, 0, 0, 0);
-
-    // Save the VAO for later manipulation
-    grid->setVAO(VAO);
+    glBindVertexArray(0);
 }
 
 // Sets attribute variables for later manipulation
 void setAttributes() {
  
-    Projection = glGetUniformLocation(program, "Projection");
-    ModelView  = glGetUniformLocation(program, "ModelView");
+    Projection = glGetUniformLocation(shader, "Projection");
+    ModelView  = glGetUniformLocation(shader, "ModelView");
 }
 
 // Creates a camera with default parameters
@@ -476,14 +539,14 @@ void initCamera() {
 
     // Create a new camera
     camera = new Camera(
-        glm::vec3(2.0f, 1.0f, 3.0f),    // Position vector
-        glm::vec3(0.0f, 0.0f, 0.0f),    // Target vector
-        glm::vec3(0.0f, 1.0f, 0.0f),    // Up vector
-        VIEW_FOV,                       // Field of view
-        width / height,                 // Aspect ratio
-        VIEW_NEAR_CLIP,                 // Near clip plane z
-        VIEW_FAR_CLIP                   // Far clip plane z
-        );
+        glm::vec3(20.f, 25.f, 20.f),  // Position vector
+        glm::vec3( 0.f, 10.f,  0.f),  // Target vector
+        glm::vec3( 0.f,  1.f,  0.f),  // Up vector
+        VIEW_FOV,                     // Field of view
+        width / height,               // Aspect ratio
+        VIEW_NEAR_CLIP,               // Near clip plane z
+        VIEW_FAR_CLIP                 // Far clip plane z
+    );
 }
 
 int main(int argc, char** argv) {
@@ -499,27 +562,32 @@ int main(int argc, char** argv) {
 
     // Initialize a shader, given the desired paths
     initCamera();
-    Shader shader("./src/test.vert", "./src/test.frag");
-    program = shader.getID();
+    Shader newShader("./src/test.vert", "./src/test.frag");
+    shader = newShader.getID();
 
     // Create a new grid object
-    Coordinate origin; 
-    origin.y = 0; 
-    origin.x = 0;
     Dimension gridSize;
     gridSize.width  = 10;
     gridSize.height = 20;
     gridSize.depth  = 1;
-    grid = new Grid(20, 10, gridSize, origin);
-    grid->setShader(shader.getID());
+    grid = new Grid(20, 10, gridSize, WorldObject::OBJ_VERTEX | WorldObject::OBJ_LINE);
+
+    axes = new Axes(WorldObject::OBJ_VERTEX | WorldObject::OBJ_LINE);
+    cube = new Cube(WorldObject::OBJ_VERTEX | WorldObject::OBJ_FACE);
 
     // Set up vertex buffers and vertex attribute arrays
     setAttributes();
     setVertexBuffers();
 
-    ObjReader reader;
+    // Initialize axes to the correct dimensions
+    axes->scale(glm::vec3(100.f, 100.f, 100.f));
+    
+    // Initialize grid to correct location and dimensions
+    grid->translate(glm::vec3(0.f, 10.f, 0.f));
+    grid->scale(glm::vec3(10.f, 10.f, 10.f));
 
-    std::vector<glm::vec4> vert = reader.readVertices("./src/grid.obj");
+    cube->translate(glm::vec3(0.5f, 0.5f, 0.f));
+    // cube->scale(glm::vec3(0.5f, 0.5f, 0.5f));
 
     // Go to GLUT main loop
     glutMainLoop();

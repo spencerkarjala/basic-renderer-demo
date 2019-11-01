@@ -1,30 +1,40 @@
 #ifndef WORLDOBJECT_H
 #define WORLDOBJECT_H
 
+#include <vector>
+#include <../lib/glm/mat4x4.hpp>
+#include <../lib/glm/vec3.hpp>
 #include "Coordinate.h"
 
 class WorldObject {
 
     public:
 
-    WorldObject(Coordinate position);
+    enum {
+        OBJ_VERTEX = 1,
+        OBJ_NORM   = 2,
+        OBJ_LINE   = 4,
+        OBJ_FACE   = 8
+    };
+
+    WorldObject(int flags);
     ~WorldObject();
 
-    Coordinate getPosition();
-    void setPosition(Coordinate position);
-    void setPosition(int x, int y, int z);
+    glm::mat4 getModel();
 
-    unsigned int getVAO();
-    void setVAO(unsigned int VAO);
+    void scale(glm::vec3 scaleVec);
+    void translate(glm::vec3 transVec);
 
-    unsigned int getShader();
-    void setShader(unsigned int shader);
+    void setupBuffers(const char* path, const char* vAttrS, const char* cAttrS,
+        unsigned int shader, std::vector<float> colors);
+        
+    void draw(unsigned int type);
 
     private:
 
-    Coordinate position;
-    unsigned int VAO;
-    unsigned int shader;
+    int flags;
+    unsigned int vboVertex, vboColor, ebo, attrVertex, attrColor;
+    glm::mat4 model;
 };
 
 #endif

@@ -13,8 +13,7 @@ void Renderer::draw(Board* gameBoard, Grid* grid) {
 
     // this->drawTetrominoTrace(gameBoard);
     // this->drawFruit(gameBoard);
-    // this->drawGrid(grid);
-    this->drawRobotArm(grid);
+    // this->drawRobotArm(grid);
 }
 
 // Draws a given fruit on the game board
@@ -27,31 +26,6 @@ void Renderer::draw(Fruit* fruit) {
         glColor4f(color.red, color.green, color.blue, color.alpha);
         this->drawCell(position);
     }
-}
-
-// Rotates the world coordinate system left
-void Renderer::rotateWorldLeft(Board* gameBoard, Grid* grid) {
-
-    glMatrixMode(GL_MODELVIEW);
-    glRotatef(2.0, 0.0, 1.0, 0.0);
-}
-
-// Rotates the world coordinate system right
-void Renderer::rotateWorldRight(Board* gameBoard, Grid* grid) {
-
-    glMatrixMode(GL_MODELVIEW);
-    glRotatef(-2.0, 0.0, 1.0, 0.0);
-}
-
-// Draws the grid for the game board
-void Renderer::drawGrid(Grid* grid) {
-
-    this->drawAxes();
-    
-    // glColor4f(1.0, 1.0, 1.0, 0.3);
-    // this->drawGridHeight(grid);
-    // this->drawGridWidth(grid);
-    // this->drawGridDepth(grid);
 }
 
 // Draws each fruit on the game board that isn't NULL
@@ -102,114 +76,6 @@ void Renderer::drawTetrominoTrace(Board* gameBoard) {
             this->draw(&currFruit);
         }
     }
-}
-
-// Draws the coordinate axes for debugging
-void Renderer::drawAxes() {
-
-    // Save the current attributes (color)
-    glPushAttrib(GL_CURRENT_BIT);
-
-    glBegin(GL_LINES);
-        // Draw the x-axis
-        glColor4f(1.0, 0.0, 0.0, 1.0);
-        glVertex3f(-1000, 0, 0);
-        glVertex3f(1000, 0, 0);
-
-        // Draw the y-axis
-        glColor4f(0.0, 1.0, 0.0, 1.0);
-        glVertex3f(0, -1000, 0);
-        glVertex3f(0, 1000, 0);
-
-        // Draw the z-axis
-        glColor4f(0.0, 0.0, 1.0, 1.0);
-        glVertex3f(0, 0, -1000);
-        glVertex3f(0, 0, 1000);
-    glEnd();
-
-    // Restore attributes
-    glPopAttrib();
-}
-
-// Renders lines in the xy-plane in 3D
-void Renderer::drawGridHeight(Grid* grid) {
-    
-    // Obtain grid dimensions
-    Dimension gridSize = grid->getSize();
-    int numCols = grid->getNumCols();
-
-    // Initialize increment variables based off grid size
-    GLfloat xInc = numCols / gridSize.width;
-    GLfloat zInc = 1       / gridSize.depth;
-
-    // Initialize grid depth to center over z=0 axis
-    double offset = gridSize.depth / 2;
-
-    // Initialize grid depth to center over y=0 and z=0 axis
-    double xOff = gridSize.width / 2;
-
-    // Draw vertical lines along each discrete xy-plane combination
-    glBegin(GL_LINES);
-        for (GLfloat x = -xOff; x <= xOff; x += xInc) {
-            for (GLfloat z = -offset; z <= offset; z += zInc) {
-                glVertex3f(x, 0,               z);
-                glVertex3f(x, gridSize.height, z);
-            }
-        }
-    glEnd();
-}
-
-// Renders short grid lines depth-wise
-void Renderer::drawGridDepth(Grid* grid) {
-    
-    // Obtain grid dimensions
-    Dimension gridSize = grid->getSize();
-    int numCols = grid->getNumCols();
-    int numRows = grid->getNumRows();
-
-    // Initialize increment variables based off grid size
-    GLfloat xInc = numCols / gridSize.width;
-    GLfloat yInc = numRows / gridSize.height;
-
-    // Initialize grid depth to center over y=0 and z=0 axis
-    double xOff = gridSize.width / 2;
-    double zOff = gridSize.depth / 2;
-
-    // Draw horizontal lines along each discrete xz-plane combination
-    glBegin(GL_LINES);
-        for (GLfloat x = -xOff; x <= xOff; x += xInc) {
-            for (GLfloat y = 0; y <= gridSize.height; y += yInc) {
-                glVertex3f(x, y, -zOff);
-                glVertex3f(x, y, zOff);
-            }
-        }
-    glEnd();
-}
-
-// Renders lines in the yz-plane in 3D
-void Renderer::drawGridWidth(Grid* grid) {
-    
-    // Obtain grid dimensions
-    Dimension gridSize = grid->getSize();
-    int numRows = grid->getNumRows();
-
-    // Initialize increment variables based off grid size
-    GLfloat yInc = 1       / gridSize.depth;
-    GLfloat zInc = numRows / gridSize.height;
-
-    // Initialize grid depth to center over z=0 axis
-    double xOff = gridSize.width / 2;
-    double zOff = gridSize.depth / 2;
-
-    // Draw horizontal lines along each discrete yz-plane combination
-    glBegin(GL_LINES);
-        for (GLfloat y = 0; y <= gridSize.height; y += yInc) {
-            for (GLfloat z = -zOff; z <= zOff; z += zInc) {
-                glVertex3f(-xOff, y, z);
-                glVertex3f(xOff,  y, z);
-            }
-        }
-    glEnd();
 }
 
 // Renders a cube in a particular cell 

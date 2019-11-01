@@ -8,7 +8,7 @@ class Grid : public WorldObject {
     
     public:
 
-    Grid(int nRows, int nCols, Dimension size, Coordinate position);
+    Grid(int nRows, int nCols, Dimension size, int flags);
     ~Grid();
 
     int getNumRows();
@@ -22,8 +22,7 @@ class Grid : public WorldObject {
 
     private:
 
-    int nRows;
-    int nCols;
+    int nRows, nCols;
     Dimension size;
 };
 
