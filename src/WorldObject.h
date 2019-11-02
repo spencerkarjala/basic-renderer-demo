@@ -24,6 +24,7 @@ class WorldObject {
 
     void scale(glm::vec3 scaleVec);
     void translate(glm::vec3 transVec);
+    void rotate(float theta, glm::vec3 axis);
 
     void setupBuffers(const char* path, const char* vAttrS, const char* cAttrS,
         unsigned int shader, std::vector<float> colors);

@@ -15,6 +15,7 @@
 #include "ObjReader.h"
 #include "Axes.h"
 #include "Cube.h"
+#include "RobotArm.h"
 
 #define BASE_HEIGHT 5
 #define BASE_WIDTH  10
@@ -29,6 +30,7 @@ GLuint vPosition, vColor, Projection, ModelView;
 Grid* grid;
 Axes* axes;
 Cube* cube;
+RobotArm* arm;
 Camera* camera;
 ObjReader reader;
 GameInstance gameState;
@@ -57,30 +59,15 @@ std::vector<float> gridColors = {
 };
 
 std::vector<float> cubeColors = {
-    1.0f, 0.0f, 0.0f, 0.0f,
-    1.0f, 0.0f, 0.0f, 0.0f,
-    1.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 0.0f,
-    0.0f, 0.0f, 0.0f, 0.0f,
-    // 0.0f, 0.0f, 0.0f, 1.0f,
-    // 1.0f, 0.0f, 0.0f, 1.0f,
-    // 1.0f, 0.0f, 0.0f, 1.0f,
-    // 0.0f, 1.0f, 0.0f, 1.0f,
-    // 0.0f, 1.0f, 0.0f, 1.0f,
-    // 0.0f, 0.0f, 1.0f, 1.0f,
-    // 0.0f, 0.0f, 1.0f, 1.0f,
-    // 0.0f, 1.0f, 1.0f, 1.0f,
-    // 0.0f, 1.0f, 1.0f, 1.0f,
-    // 1.0f, 0.0f, 1.0f, 1.0f,
-    // 1.0f, 0.0f, 1.0f, 1.0f,
-    // 0.0f, 0.0f, 0.0f, 1.0f
+    0.4f, 0.4f, 0.4f, 1.0f,
+    0.4f, 0.4f, 0.4f, 1.0f,
+    0.4f, 0.4f, 0.4f, 1.0f,
+    0.4f, 0.4f, 0.4f, 1.0f,
+    0.4f, 0.4f, 0.4f, 1.0f,
+    0.4f, 0.4f, 0.4f, 1.0f,
+    0.4f, 0.4f, 0.4f, 1.0f,
+    0.4f, 0.4f, 0.4f, 1.0f,
+    0.4f, 0.4f, 0.4f, 1.0f
 };
 
 
@@ -355,7 +342,7 @@ std::vector<float> cubeColors = {
 void refresh(void) {
 
     if (rotate != 0) {
-        camera->rotate(0.01f * rotate, glm::vec3(0.f, 1.f, 0.f));
+        camera->rotate(0.02f * rotate, glm::vec3(0.f, 1.f, 0.f));
     }
     
     // Clear color and z-buffers
@@ -371,9 +358,11 @@ void refresh(void) {
     glUniformMatrix4fv(ModelView,  1, false, glm::value_ptr(mModelView));
     glBindVertexArray(VAO);
 
-    glm::mat4 cubeModel = mModelView * cube->getModel();
-    glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(cubeModel));
-    cube->draw(GL_TRIANGLES);
+    // glm::mat4 cubeModel = mModelView * cube->getModel();
+    // glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(cubeModel));
+    // cube->draw(GL_TRIANGLES);
+
+    arm->draw(ModelView, mModelView);
 
     glm::mat4 axesModel = mModelView * axes->getModel();
     glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(axesModel));
@@ -520,6 +509,8 @@ void setVertexBuffers() {
         cubeColors
     );
 
+    arm->init(shader);
+
     glBindVertexArray(0);
 }
 
@@ -574,6 +565,7 @@ int main(int argc, char** argv) {
 
     axes = new Axes(WorldObject::OBJ_VERTEX | WorldObject::OBJ_LINE);
     cube = new Cube(WorldObject::OBJ_VERTEX | WorldObject::OBJ_FACE);
+    arm  = new RobotArm();
 
     // Set up vertex buffers and vertex attribute arrays
     setAttributes();
@@ -586,8 +578,9 @@ int main(int argc, char** argv) {
     grid->translate(glm::vec3(0.f, 10.f, 0.f));
     grid->scale(glm::vec3(10.f, 10.f, 10.f));
 
-    cube->translate(glm::vec3(0.5f, 0.5f, 0.f));
-    // cube->scale(glm::vec3(0.5f, 0.5f, 0.5f));
+    // cube->translate(glm::vec3(0.5f, 0.5f, 0.f));
+    // cube->scale(glm::vec3(4.f, 3.f, 4.f));
+    // cube->translate(glm::vec3(-9.5f, 0.f, 0.f));
 
     // Go to GLUT main loop
     glutMainLoop();

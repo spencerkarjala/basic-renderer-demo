@@ -15,11 +15,15 @@ glm::mat4 WorldObject::getModel() {
 }
 
 void WorldObject::scale(glm::vec3 scaleVec) {
-    this->model = this->model * glm::scale(glm::mat4(1.f), scaleVec);
+    this->model = glm::scale(this->model, scaleVec);
 }
 
 void WorldObject::translate(glm::vec3 transVec) {
-    this->model = this->model * glm::translate(glm::mat4(1.f), transVec);
+    this->model = glm::translate(this->model, transVec);
+}
+
+void WorldObject::rotate(float theta, glm::vec3 axis) {
+    this->model = glm::rotate(this->model, theta, axis);
 }
 
 void WorldObject::setupBuffers(const char* path, const char* vAttrS, 
