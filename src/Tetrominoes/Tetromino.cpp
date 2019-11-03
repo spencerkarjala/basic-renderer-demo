@@ -16,8 +16,22 @@ Tetromino::Tetromino(Tetromino* newTetromino) {
 Coordinate Tetromino::getPosition() {
     return this->position;
 }
+
 void Tetromino::setPosition(Coordinate newPosition) {
+
+    Coordinate oldPosition = this->position;
     this->position = newPosition;
+    Coordinate diff;
+    diff.x = newPosition.x - oldPosition.x;
+    diff.y = newPosition.y - oldPosition.y;
+
+    for (int index = 0; index < this->NUM_FRUIT_PER_TETROMINO; index++) {
+        Fruit* curr = this->fruits[index];
+        Coordinate fruitPos = curr->getPosition();
+        fruitPos.x = fruitPos.x + diff.x;
+        fruitPos.y = fruitPos.y + diff.y;
+        curr->setPosition(fruitPos);
+    }
 }
 
 int Tetromino::getOrientation() {
@@ -55,7 +69,7 @@ void Tetromino::move(Vector displacement) {
     }
 
     // Set the new position of the pivot point of the tetromino
-    this->setPosition(this->fruits[2]->getPosition());
+    this->position = this->fruits[2]->getPosition();
 }
 
 // Rotates the tetromino counterclockwise by 90 degrees
@@ -83,13 +97,11 @@ void Tetromino::rotateCCW() {
 // Returns true if the given fruit is contained in the tetromino; false otherwise
 bool Tetromino::fruitBelongsToTetromino(Fruit* fruit) {
 
-    bool belongs = false;
-
     // Run over all fruits in the tetromino and compare their addresses
     for (int index = 0; index < this->NUM_FRUIT_PER_TETROMINO; index++) {
         if (fruit == this->fruits[index]) {
-            belongs = true;
+            return true;
         }
     }
-    return belongs;
+    return false;
 }

@@ -3,12 +3,21 @@
 #include "WorldObject.h"
 #include "ObjReader.h"
 
+WorldObject::WorldObject() {
+    this->model = glm::mat4(1.f);
+    this->flags = 0;
+}
+
 WorldObject::WorldObject(int flags) {
     this->model = glm::mat4(1.f);
     this->flags = flags;
 }
 
 WorldObject::~WorldObject() {}
+
+void WorldObject::setFlags(int flags) {
+    this->flags = flags;
+}
 
 glm::mat4 WorldObject::getModel() {
     return this->model;
@@ -71,6 +80,17 @@ void WorldObject::setupBuffers(const char* path, const char* vAttrS,
         sizeof(unsigned int) * indices.size(),
         &indices[0],
         GL_STATIC_DRAW);
+}
+
+void WorldObject::changeColor(std::vector<float> colors) {
+    
+    glBindBuffer(GL_ARRAY_BUFFER, this->vboColor);
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        sizeof(float) * colors.size(),
+        &colors[0],
+        GL_STATIC_DRAW
+    );
 }
 
 void WorldObject::draw(unsigned int type) {

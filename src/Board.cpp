@@ -118,6 +118,7 @@ Tetromino* Board::getTetromino() {
     return this->tetromino;
 }
 void Board::setTetromino(Tetromino* tetromino) {
+    
     this->tetromino = tetromino;
 }
 
@@ -129,7 +130,11 @@ Fruit*** Board::getFruits() {
 void Board::registerFruit(Fruit* newFruit) {
 
     Coordinate newFruitPosition = newFruit->getPosition();
-    this->fruits[newFruitPosition.y][newFruitPosition.x] = newFruit;
+    if (this->isOutOfBoundsAt(newFruitPosition)) {
+        return;
+    } else if (!this->isCollisionAt(newFruitPosition)) {
+        this->fruits[newFruitPosition.y][newFruitPosition.x] = newFruit;
+    }
 }
 
 // Removes a fruit from the game board

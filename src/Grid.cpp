@@ -31,3 +31,13 @@ Dimension Grid::getSize() {
 void Grid::setSize(Dimension size) {
     this->size = size;
 }
+
+std::vector<float> Grid::getColors() {
+
+    std::vector<float> colors;
+    for (int index = 0; index < 120; index++) {
+        colors.push_back(0.0f); colors.push_back(0.0f);
+        colors.push_back(0.0f); colors.push_back(1.0f);
+    }
+    return colors;
+}

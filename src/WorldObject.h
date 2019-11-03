@@ -17,8 +17,11 @@ class WorldObject {
         OBJ_FACE   = 8
     };
 
+    WorldObject();
     WorldObject(int flags);
     ~WorldObject();
+
+    void setFlags(int flags);
 
     glm::mat4 getModel();
 
@@ -29,6 +32,8 @@ class WorldObject {
     void setupBuffers(const char* path, const char* vAttrS, const char* cAttrS,
         unsigned int shader, std::vector<float> colors);
         
+    void changeColor(std::vector<float> colors);
+
     void draw(unsigned int type);
 
     private:

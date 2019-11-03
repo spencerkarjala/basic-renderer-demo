@@ -2,6 +2,7 @@
 #define BOARD_MEDIATOR_H
 
 #include <stdexcept>
+#include <../lib/glm/vec3.hpp>
 #include "Board.h"
 #include "Direction.h"
 #include "Color.h"
@@ -22,6 +23,8 @@ class BoardMediator {
     void rotateTetromino(Tetromino* tetromino, Board* board);
     void dropTetromino(Tetromino* tetromino, Board* board);
     int findMaxFallingDistance(Tetromino* tetromino, Board* board);
+    void updateTetrominoPosition(Board* board, glm::vec3 tetPos);
+    bool isTetrominoCollisionAt(Tetromino* tetromino, Board* board, glm::vec3 position);
 
     private:
     void placeTetrominoOnBoard(Tetromino* tetromino, Board* board);

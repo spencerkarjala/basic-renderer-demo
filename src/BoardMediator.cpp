@@ -45,9 +45,6 @@ void BoardMediator::startTetrominoFromTop(Board* board) {
 // Used to move the tetromino in the direction indicated by the vector
 void BoardMediator::moveTetromino(Vector displacement, Tetromino* tetromino, Board* board) {
 
-    // Remove the current tetromino from the board to prevent false collisions
-    this->clearTetrominoFromBoard(tetromino, board);
-
     // If the move is valid, then move the tetromino in the desired direction
     if (this->moveIsValid(displacement, tetromino, board)) {
         tetromino->move(displacement);
@@ -55,11 +52,9 @@ void BoardMediator::moveTetromino(Vector displacement, Tetromino* tetromino, Boa
 
     // Otherwise, if the direction is downward, it must have hit something below so drop it
     else if (displacement.getDirection() == 270) {
-        this->dropTetromino(tetromino, board);
+        this->placeTetrominoOnBoard(tetromino, board);
+        board->setTetromino(nullptr);
     }
-
-    // Place the newly moved tetromino back on the board
-    this->placeTetrominoOnBoard(tetromino, board);
 }
 
 // Rotates the tetromino counterclockwise
@@ -303,5 +298,33 @@ void BoardMediator::checkNewTetrominoPlacement(Tetromino* tetromino, Board* boar
         if (board->isCollisionAt(currFruit->getPosition())) {
             throw std::domain_error("Block collision - end game.");
         }
+    }
+}
+
+bool BoardMediator::isTetrominoCollisionAt(Tetromino* tetromino, Board* board, glm::vec3 position) {
+
+    for (int index = 0; index < tetromino->NUM_FRUIT_PER_TETROMINO; index++) {
+        Fruit* currFruit = tetromino->getFruits()[index];
+        if (board->isCollisionAt(currFruit->getPosition())) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void BoardMediator::updateTetrominoPosition(Board* board, glm::vec3 tetPos) {
+    
+    Tetromino* tetromino;
+    Coordinate newPos;
+    newPos.x = tetPos.x+4; newPos.y = tetPos.y; newPos.z = tetPos.z;
+    
+    if (!board->tetrominoIsOnBoard()) {
+        Dimension cellSize = board->getCellSize();
+        tetromino = this->generateRandomTetrominoType(newPos, cellSize);
+        board->setTetromino(tetromino);
+    }
+    else {
+        tetromino = board->getTetromino();
+        tetromino->setPosition(newPos);
     }
 }

@@ -14,8 +14,8 @@
 #include "Camera.h"
 #include "ObjReader.h"
 #include "Axes.h"
-#include "Cube.h"
 #include "RobotArm.h"
+#include "Cube.h"
 
 #define BASE_HEIGHT 5
 #define BASE_WIDTH  10
@@ -29,15 +29,17 @@
 GLuint vPosition, vColor, Projection, ModelView;
 Grid* grid;
 Axes* axes;
-Cube* cube;
 RobotArm* arm;
+Cube* cube;
 Camera* camera;
 ObjReader reader;
 GameInstance gameState;
-Renderer renderer;
+Renderer* renderer;
 BoardMediator boardMediator;
 
-int rotate = 0;
+int  rotateCamera    = 0;
+int  rotateTopArm    = 0;
+int  rotateBottomArm = 0;
 
 glm::mat4 mProjection;
 glm::mat4 mModelView;
@@ -55,294 +57,259 @@ std::vector<float> axisColors = {
 };
 
 std::vector<float> gridColors = {
-    0.0f, 0.0f, 0.0f, 1.0f
+    1.0f, 1.0f, 1.0f, 1.0f
 };
 
-std::vector<float> cubeColors = {
-    0.4f, 0.4f, 0.4f, 1.0f,
-    0.4f, 0.4f, 0.4f, 1.0f,
-    0.4f, 0.4f, 0.4f, 1.0f,
-    0.4f, 0.4f, 0.4f, 1.0f,
-    0.4f, 0.4f, 0.4f, 1.0f,
-    0.4f, 0.4f, 0.4f, 1.0f,
-    0.4f, 0.4f, 0.4f, 1.0f,
-    0.4f, 0.4f, 0.4f, 1.0f,
-    0.4f, 0.4f, 0.4f, 1.0f
-};
+// Closes the game, freeing any necessary data`
+void closeGame() {
+    glDeleteVertexArrays(1, &VAO);
+    delete grid;
+    delete camera;
+    delete axes;
+    exit(0);
+}
 
-
-// // Ends the game in the case where the player has run out of room to place blocks
-// void endGame() {
-
-//     // Set the game mode to "game over"
-//     gameState.toggleGameOver();
-
-//     // Set each fruit available on the game board to be grey
-//     Board* gameBoard = gameState.getBoard();
-//     gameBoard->setCellsToGray();
-
-//     // Draw the newly greyed-out fruits on the game board
-//     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-//     renderer.draw(gameBoard, grid);
-//     glutSwapBuffers();
-// }
-
-// // Start a new tetromino from the top after one has been dropped
-// void restartTetromino() {
+// Drop tetromino on the board to the lowest position it can reach vertically
+void dropCurrentTetromino() {
     
-//     Board* gameBoard = gameState.getBoard();
-//     try {
-//         boardMediator.startTetrominoFromTop(gameBoard);
-//     }
+    Board*      board      = gameState.getBoard();
+    Tetromino*  tetromino  = board->getTetromino();
+    Fruit**     tetFruits  = tetromino->getFruits();
 
-//     // If placing a new tetromino caused a collision, end the game
-//     catch (std::domain_error collision) {
-//         endGame();
-//     }
-// }
+    for (int index = 0; index < tetromino->NUM_FRUIT_PER_TETROMINO; index++) {
+        Coordinate fruitPos = tetFruits[index]->getPosition();
+        if (board->isOutOfBoundsAt(fruitPos) || board->isCollisionAt(fruitPos)) {
+            return;
+        }
+    }
 
-// // Move the current tetromino down by one cell on the board
-// void moveTetrominoDown() {
+    arm->toggleHold();
+}
 
-//     Board* gameBoard = gameState.getBoard();
-//     try {
-//         boardMediator.moveTetromino(Vector(270, 1), gameBoard->getTetromino(),gameBoard);
-//     }
+// In the case of a down-arrow press, speed up the drop speed of the tetromino
+void speedUpTetrominoDrop() {
+    double newTickLength = 75.0;
+    gameState.setTickLength(newTickLength);
+    gameState.setNextTickTime(gameState.getCurrentTime());
+}
 
-//     // If moving the tetromino caused a collision, end the game
-//     catch (std::domain_error e) {
-//         endGame();
-//     }
-// }
+// In case of a left-arrow press, move the tetromino left
+void moveTetrominoLeft() {
+    Board* gameBoard = gameState.getBoard();
+    if (gameBoard->tetrominoIsOnBoard()) {
+        boardMediator.moveTetromino(Vector(180, 1), gameBoard->getTetromino(), gameBoard);
+    }
+}
 
-// float index = 0;
+// In case of a right-arrow press, move the tetromino right
+void moveTetrominoRight() {
+    Board* gameBoard = gameState.getBoard();
+    if (gameBoard->tetrominoIsOnBoard()) {
+        boardMediator.moveTetromino(Vector(0, 1), gameBoard->getTetromino(), gameBoard);
+    }
+}
 
-// // Main game loop
-// void playGame(void) {
+// In case of an up-arrow press, rotate the tetromino counterclockwise
+void rotateTetrominoCCW() {
+    Board*      gameBoard  = gameState.getBoard();
+    Tetromino*  tetromino  = gameBoard->getTetromino();
 
-//     // glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-//     // glClear(GL_COLOR_BUFFER_BIT);
-//     // glUseProgram(grid->getShader());
-//     // glBindVertexArray(grid->getVAO());
-//     // glDrawArrays(GL_TRIANGLES, 0, 3);
-//     // glutSwapBuffers();
-//     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    if (tetromino != nullptr) {
+        tetromino->rotateCCW();
+    }
+}
 
-//     mat4 instance = ( RotateZ(1.0 * index) * Translate( 0.0, 0.5 * BASE_HEIGHT, 0.0 ) *
-// 		 Scale( BASE_WIDTH,
-// 			BASE_HEIGHT,
-// 			BASE_WIDTH ) );
+// In case the down-arrow has been released, slow tetromino drop speed back down
+void slowDownTetrominoDrop() {
+    double newTickLength = 1000.0;
+    gameState.setTickLength(newTickLength);
+    double currentTime = gameState.getCurrentTime();
+    gameState.setNextTickTime(currentTime + newTickLength);
+}
 
-//             index++;
+// Ends the game in the case where the player has run out of room to place blocks
+void endGame() {
 
-//     for (int i = 0; i < 4; i++) {
-//         printf("%f\t%f\t%f\t%f\n", instance._m[i].x, instance._m[i].y, instance._m[i].z, instance._m[i].w);
-//     }
-//     printf("\n");
+    // // Set the game mode to "game over"
+    // gameState.toggleGameOver();
 
-//     glUniformMatrix4fv(ModelView, 1, GL_TRUE, model_view * instance);
-//     glDrawArrays(GL_TRIANGLES, 0, 3);
-//     glutSwapBuffers();
+    // // Set each fruit available on the game board to be grey
+    // Board* gameBoard = gameState.getBoard();
+    // gameBoard->setCellsToGray();
 
-//     // // If the game isn't paused and hasn't ended, redraw the board
-//     // if (!gameState.isPaused() && !gameState.gameIsOver()) {
+    // // Draw the newly greyed-out fruits on the game board
+    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // renderer.draw(gameBoard, grid);
+    // glutSwapBuffers();
+}
 
-//     //     double currentTime     = gameState.getCurrentTime();
-//     //     double nextRefreshTime = gameState.getNextRefreshTime();
+// Move the current tetromino down by one cell on the board
+void moveTetrominoDown() {
 
-//     //     // Limits the frame rate to limit the necessary operations
-//     //     if (currentTime >= nextRefreshTime) {
+    Board* gameBoard = gameState.getBoard();
+    try {
+        boardMediator.moveTetromino(Vector(270, 1), gameBoard->getTetromino(),gameBoard);
+    }
 
-//     //         double refreshRate = gameState.getRefreshRate();
-//     //         double currentTime = gameState.getCurrentTime();
-//     //         Board* gameBoard   = gameState.getBoard();
+    // If moving the tetromino caused a collision, end the game
+    catch (std::domain_error e) {
+        endGame();
+    }
+}
 
-//     //         // Lock player key input during critical tetromino calculations
-//     //         gameState.toggleInputLock();
-//     //         gameState.setNextRefreshTime(currentTime + refreshRate);
+// Start a new tetromino from the top after one has been dropped
+void restartTetromino() {
+    
+    Board* gameBoard = gameState.getBoard();
+    try {
+        boardMediator.startTetrominoFromTop(gameBoard);
+    }
 
-//     //         if (!gameBoard->tetrominoIsOnBoard()) {
-//     //             restartTetromino();
-//     //         }
+    // If placing a new tetromino caused a collision, end the game
+    catch (std::domain_error collision) {
+        endGame();
+    }
+}
 
-//     //         // Drop the tetromino down one block if enough time has elapsed
-//     //         if (currentTime >= gameState.getNextTickTime()) {
-//     //             gameState.setNextTickTime(currentTime + gameState.getTickLength());
-//     //             moveTetrominoDown();
-//     //         }
+void updateGame() {
 
-//     //         if (rotateL) {
-//     //             renderer.rotateWorldLeft(gameState.getBoard(), grid);
-//     //         }
-//     //         if (rotateR) {
-//     //             renderer.rotateWorldRight(gameState.getBoard(), grid);
-//     //         }
+    if (!gameState.isPaused() && !gameState.gameIsOver()) {
 
-//     //         // Allow for player key input
-//     //         gameState.toggleInputLock();
-            
-//     //         // Draw the resulting game board
-//     //         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-//     //         renderer.draw(gameBoard, grid);
-//     //         glutSwapBuffers();
-//     //     }
-//     // }
-// }
+        double currentTime     = gameState.getCurrentTime();
+        double nextRefreshTime = gameState.getNextRefreshTime();
 
-// // Drop tetromino on the board to the lowest position it can reach vertically
-// void dropCurrentTetromino() {
-//     Board* gameBoard = gameState.getBoard();
-//     if (!gameState.isPaused() && !gameState.gameIsOver()) {
+        // Limits the frame rate to limit the necessary operations
+        if (currentTime >= nextRefreshTime) {
 
-//         try {
-//             boardMediator.dropTetromino(gameBoard->getTetromino(), gameBoard);
-//         }
+            double refreshRate = gameState.getRefreshRate();
+            double currentTime = gameState.getCurrentTime();
 
-//         // If dropping the tetromino caused a collision, end the game
-//         catch (std::domain_error e) {
-//             endGame();
-//         }
-//     }
-// }
+            // Lock player key input during critical tetromino calculations
+            gameState.toggleInputLock();
+            gameState.setNextRefreshTime(currentTime + refreshRate);
 
-// // In the case of a down-arrow press, speed up the drop speed of the tetromino
-// void speedUpTetrominoDrop() {
-//     double newTickLength = 75.0;
-//     gameState.setTickLength(newTickLength);
-//     gameState.setNextTickTime(gameState.getCurrentTime());
-// }
+            // Drop the tetromino down one block if enough time has elapsed
+            if (currentTime >= gameState.getNextTickTime() && !arm->isHolding()) {
+                gameState.setNextTickTime(currentTime + gameState.getTickLength());
+                moveTetrominoDown();
+            }
 
-// // In case of a left-arrow press, move the tetromino left
-// void moveTetrominoLeft() {
-//     Board* gameBoard = gameState.getBoard();
-//     if (gameBoard->tetrominoIsOnBoard()) {
-//         boardMediator.moveTetromino(Vector(180, 1), gameBoard->getTetromino(), gameBoard);
-//     }
-// }
+            glm::vec3 tetPosition = arm->getTipLocation(mModelView);
 
-// // In case of a right-arrow press, move the tetromino right
-// void moveTetrominoRight() {
-//     Board* gameBoard = gameState.getBoard();
-//     if (gameBoard->tetrominoIsOnBoard()) {
-//         boardMediator.moveTetromino(Vector(0, 1), gameBoard->getTetromino(), gameBoard);
-//     }
-// }
+            if (!gameState.getBoard()->tetrominoIsOnBoard()) {
+                arm->toggleHold();
+            }
+            if (arm->isHolding()) {
+                boardMediator.updateTetrominoPosition(gameState.getBoard(), tetPosition);
+            }
 
-// // In case of an up-arrow press, rotate the tetromino counterclockwise
-// void rotateTetrominoCCW() {
-//     Board* gameBoard = gameState.getBoard();
-//     boardMediator.rotateTetromino(gameBoard->getTetromino(), gameBoard);
-// }
+            // Allow for player key input
+            gameState.toggleInputLock();
+        }
+    }
+}
 
-// // In case the down-arrow has been released, slow tetromino drop speed back down
-// void slowDownTetrominoDrop() {
-//     double newTickLength = 1000.0;
-//     gameState.setTickLength(newTickLength);
-//     double currentTime = gameState.getCurrentTime();
-//     gameState.setNextTickTime(currentTime + newTickLength);
-// }
+std::vector<float> generateCubeColors(Color color) {
 
-// // Provides the callback for any regular ASCII key press
-// void regularKeyCallback(unsigned char keyPressed, int xMouse, int yMouse) {
+    int NUM_CUBE_VERTICES = 8;
+    std::vector<float> colors;
+    for (int index = 0; index < NUM_CUBE_VERTICES; index++) {
+        colors.push_back(color.red);  colors.push_back(color.green);
+        colors.push_back(color.blue); colors.push_back(color.alpha);
+    }
+    return colors;
+}
 
-//     // Only allow for key presses if the game's input is not locked
-//     if (!gameState.inputIsLocked()) {
+// Draws a given fruit on the game board
+void drawFruit(Fruit* fruit) {
+    
+    Color       color     = fruit->getColor();
+    Coordinate  position  = fruit->getPosition();
+    Board*      board     = gameState.getBoard();
+    Tetromino*  tetromino = board->getTetromino();
 
-//         // Lock player key input to prevent multiple key presses
-//         gameState.toggleInputLock();
-//         switch (keyPressed) {
+    if (tetromino != NULL && tetromino->fruitBelongsToTetromino(fruit)) { 
+        if (board->isOutOfBoundsAt(position) || board->isCollisionAt(position)) {
+            color.red  = 0.3f; color.green = 0.3f;
+            color.blue = 0.3f; color.alpha = 1.0f;
+        }
+    }
 
-//             case ' ':                   // Spacebar => Drop tetromino
-//                 dropCurrentTetromino();
-//                 break;
-//             case 'q':
-//             case 'Q':
-//                 exit(0);                // Q => Quit the game
-//                 break;
-//             case 'p':
-//             case 'P':
-//                 gameState.flipPause();  // P => Pause the game
-//                 break;
-//             case 'r':
-//             case 'R':
-//                 gameState.restart();    // R => Restart the game
-//         }
+    std::vector<float> cubeColors = generateCubeColors(color);
 
-//         // Unlock player key input
-//         gameState.toggleInputLock();
-//     }
-// }
+    if (fruit != nullptr) {
 
-// // Provides the callback for the release of the arrow keys
-// void specialKeyCallbackUp(int keyPressed, int xMouse, int yMouse) {
 
-//     // Allow for key releases if the game isn't paused, locked, or hasn't ended
-//     if (!gameState.isPaused() && !gameState.inputIsLocked() && !gameState.gameIsOver()) {
+        cube->changeColor(cubeColors);
+        cube->translate(glm::vec3(position.x - 4.5f, position.y + 0.5f, 0.f));
 
-//         // Lock player key input to prevent multiple key presses
-//         gameState.toggleInputLock();
-//         switch (keyPressed) {
+        if (!tetromino->fruitBelongsToTetromino(fruit)) {
+            cube->scale(glm::vec3(0.99f, 0.99f, 0.99f));
+        }
 
-//             case GLUT_KEY_DOWN:         // Down arrow released => slow tetromino speed
-//                 slowDownTetrominoDrop();
-//                 break;
-//             case GLUT_KEY_LEFT:
-//                 rotateL = false;
-//                 break;
-//             case GLUT_KEY_RIGHT:
-//                 rotateR = false;
-//                 break;
-//         }
+        glm::mat4 fruitModel = mModelView * cube->getModel();
+        glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(fruitModel));
+        cube->draw(GL_TRIANGLES);
+        if (!tetromino->fruitBelongsToTetromino(fruit)) {
+            cube->scale(glm::vec3(1.f / 0.99f, 1.f / 0.99f, 1.f / 0.99f));
+        }
+        cube->translate(glm::vec3(4.5f - position.x, -position.y - 0.5f, 0.f));
 
-//         // Unlock player key input
-//         gameState.toggleInputLock();
-//     }
-// }
+    }
+}
 
-// // Provides the callback for any arrow key being pressed
-// void specialKeyCallbackDown(int keyPressed, int xMouse, int yMouse) {
+// Draws each fruit on the game board that isn't NULL
+void drawBoard() {
 
-//     // Allow for arrow key presses if the game isn't paused, locked, or hasn't ended
-//     if (!gameState.isPaused() && !gameState.inputIsLocked() && !gameState.gameIsOver()) {
+    // Get fruit matrix and dimensions for traversal
+    Board*    gameBoard  = gameState.getBoard();
+    Fruit***  fruits     = gameBoard->getFruits();
+    int       numRows    = gameBoard->getNumRows();
+    int       numCols    = gameBoard->getNumCols();
 
-//         // Lock player key input to prevent multiple key presses
-//         gameState.toggleInputLock();
-//         switch (keyPressed) {
+    // For each cell in each row, if a fruit exists there, draw it
+    for (int row = 0; row < numRows; row++) {
+        for (int col = 0; col < numCols; col++) {
+            Fruit* currentFruit = fruits[row][col];
+            if (currentFruit != NULL) {
+                drawFruit(currentFruit);
+            }
+        }
+    }
+}
 
-//             case GLUT_KEY_DOWN:         // Down arrow press => fast tetromino speed
-//                 speedUpTetrominoDrop();
-//                 break;
-//             case GLUT_KEY_LEFT:         // Left arrow press => move tetromino left
-//                 if (glutGetModifiers() == GLUT_ACTIVE_CTRL) {
-//                     rotateL = true;
-//                 }
-//                 else {
-//                     moveTetrominoLeft();
-//                 }
-//                 break;
-//             case GLUT_KEY_RIGHT:        // Right arrow press => move tetromino right
-//                 if (glutGetModifiers() == GLUT_ACTIVE_CTRL) {
-//                     rotateR = true;
-//                 }
-//                 else {
-//                     moveTetrominoRight();
-//                 }
-//                 break;
-//             case GLUT_KEY_UP:           // Up arrow press => rotate tetromino CCW
-//                 rotateTetrominoCCW();
-//                 break;
-//         }
+void drawTetromino() {
 
-//         // Unlock player key input
-//         gameState.toggleInputLock();
-//     }
-// }
+    Board*      gameBoard  = gameState.getBoard();
+    Tetromino*  tetromino  = gameBoard->getTetromino();
+
+    if (tetromino == NULL) {
+        return;
+    }
+
+    Fruit** tetFruits = tetromino->getFruits();
+
+    for (int index = 0; index < tetromino->NUM_FRUIT_PER_TETROMINO; index++) {
+        Fruit* curr = tetFruits[index];
+        if (curr != NULL) {
+            drawFruit(curr);
+        }
+    }
+}
 
 // Used to redraw the scene on each screen refresh
 void refresh(void) {
 
-    if (rotate != 0) {
-        camera->rotate(0.02f * rotate, glm::vec3(0.f, 1.f, 0.f));
+    updateGame();
+
+    if (rotateCamera != 0) {
+        camera->rotate(0.02f * rotateCamera, glm::vec3(0.f, 1.f, 0.f));
+    }
+    if (rotateBottomArm != 0) {
+        arm->rotateBottom(0.005f * rotateBottomArm);
+    }
+    if (rotateTopArm != 0) {
+        arm->rotateTop(0.005f * rotateTopArm);
     }
     
     // Clear color and z-buffers
@@ -358,19 +325,21 @@ void refresh(void) {
     glUniformMatrix4fv(ModelView,  1, false, glm::value_ptr(mModelView));
     glBindVertexArray(VAO);
 
-    // glm::mat4 cubeModel = mModelView * cube->getModel();
-    // glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(cubeModel));
-    // cube->draw(GL_TRIANGLES);
+    // arm->draw(ModelView, mModelView);
 
-    arm->draw(ModelView, mModelView);
+    // glm::mat4 axesModel = mModelView * axes->getModel();
+    // glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(axesModel));
+    // axes->draw(GL_LINES);
 
-    glm::mat4 axesModel = mModelView * axes->getModel();
-    glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(axesModel));
-    axes->draw(GL_LINES);
+    // glm::mat4 gridModel = mModelView * grid->getModel();
+    // glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(gridModel));
+    // grid->draw(GL_LINES);
 
-    glm::mat4 gridModel = mModelView * grid->getModel();
-    glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(gridModel));
-    grid->draw(GL_LINES);
+    // drawBoard();
+
+    // drawTetromino();
+
+    glutBitmapCharacter(GLUT_BITMAP_8_BY_13, 'O');
 
     glBindVertexArray(0);
  
@@ -393,25 +362,52 @@ void reshape(int width, int height) {
     glUniformMatrix4fv(ModelView,  1, GL_TRUE, glm::value_ptr(mModelView));
 }
 
-// Closes the game, freeing any necessary data`
-void closeGame() {
-    glDeleteVertexArrays(1, &VAO);
-    delete grid;
-    delete camera;
-    delete axes;
-    delete cube;
-    exit(0);
-}
-
 // Listens for ASCII keyboard input
-void normalKeyListener(unsigned char key, int x, int y) {
+void normalKeyDownListener(unsigned char key, int x, int y) {
     
     switch (key) {
 
-        // If 'q' pressed, quit the game
         case 'q':
         case 'Q':
-            closeGame();
+            closeGame();            break; // Q <=> quit game
+        case 's':
+        case 'S':
+            rotateTopArm = 1;       break; // S <=> rotate arm top
+        case 'w':
+        case 'W':
+            rotateTopArm = -1;      break; // W <=> rotate arm top
+        case 'a':
+        case 'A':
+            rotateBottomArm = 1;    break; // A <=> rotate arm bottom
+        case 'd':
+        case 'D':
+            rotateBottomArm = -1;   break; // D <=> rotate arm bottom
+        case 'p':
+        case 'P':
+            gameState.flipPause();  break; // P <=> pause game
+        case 'r':
+        case 'R':
+            gameState.restart();    break; // R <=> restart game
+        case ' ':                  
+            dropCurrentTetromino(); break; // Space <=> drop tetromino
+    }
+}
+
+// Listens for ASCII keyboard key release
+void normalKeyUpListener(unsigned char key, int x, int y) {
+
+    switch(key) {
+
+        case 'w':
+        case 'W':
+        case 's':
+        case 'S':
+            rotateTopArm = 0;       break;
+        case 'a':
+        case 'A':
+        case 'd':
+        case 'D':
+            rotateBottomArm = 0;    break;
     }
 }
 
@@ -420,25 +416,14 @@ void specialKeyDownListener(int key, int x, int y) {
 
     switch (key) {
 
-        case GLUT_KEY_DOWN:         // Down arrow press => fast tetromino speed
-            // speedUpTetrominoDrop();
+        case GLUT_KEY_LEFT:         // CTRL-Left arrow press => spin camera left
+            rotateCamera = glutGetModifiers() == GLUT_ACTIVE_CTRL;
             break;
-        case GLUT_KEY_LEFT:         // Left arrow press => move tetromino left
-            if (glutGetModifiers() == GLUT_ACTIVE_CTRL) {
-                rotate = 1;
-            } else {
-                // moveTetrominoLeft();
-            }
-            break;
-        case GLUT_KEY_RIGHT:        // Right arrow press => move tetromino right
-            if (glutGetModifiers() == GLUT_ACTIVE_CTRL) {
-                rotate = -1;
-            } else {
-                // moveTetrominoRight();
-            }
+        case GLUT_KEY_RIGHT:        // CTRL-Right arrow press => spin camera right
+            rotateCamera = -(glutGetModifiers() == GLUT_ACTIVE_CTRL);
             break;
         case GLUT_KEY_UP:           // Up arrow press => rotate tetromino CCW
-            // rotateTetrominoCCW();
+            rotateTetrominoCCW();
             break;
     }
 }
@@ -448,12 +433,9 @@ void specialKeyUpListener(int key, int x, int y) {
 
     switch (key) {
 
-        case GLUT_KEY_DOWN:         // Down arrow released => slow tetromino speed
-            // slowDownTetrominoDrop();
-            break;
         case GLUT_KEY_LEFT:
         case GLUT_KEY_RIGHT:
-            rotate = 0;
+            rotateCamera = 0;
             break;
     }
 }
@@ -470,7 +452,8 @@ void initGlutSettings() {
     // Set up GLUT callback functions
     glutDisplayFunc(refresh);
     glutReshapeFunc(reshape);
-    glutKeyboardFunc(normalKeyListener);
+    glutKeyboardFunc(normalKeyDownListener);
+    glutKeyboardUpFunc(normalKeyUpListener);
     glutSpecialFunc(specialKeyDownListener);
     glutSpecialUpFunc(specialKeyUpListener);
     glutIdleFunc(refresh);
@@ -483,40 +466,27 @@ void setVertexBuffers() {
     glBindVertexArray(VAO);
 
     // Set up buffers for coordinate axes
-    axes->setupBuffers(
-        "./src/axes.obj",
-        "vPosition",
-        "vColor",
-        shader,
-        axisColors
-    );
+    axes->setupBuffers("./src/axes.obj", "vPosition", "vColor", shader, axisColors);
 
     // Set up buffers for game grid
-    grid->setupBuffers(
-        "./src/grid.obj",
-        "vPosition",
-        "vColor",
-        shader,
-        gridColors
-    );
-
-    // Set up cube buffers
-    cube->setupBuffers(
-        "./src/cube.obj",
-        "vPosition",
-        "vColor",
-        shader,
-        cubeColors
-    );
+    grid->setupBuffers("./src/grid.obj", "vPosition","vColor", shader, grid->getColors());
 
     arm->init(shader);
+
+    Color cubeColor;
+    cubeColor.red  = 0.3f; cubeColor.green = 0.3f;
+    cubeColor.blue = 0.3f; cubeColor.alpha = 1.0f;
+
+    std::vector<float> cubeColors = generateCubeColors(cubeColor);
+
+    cube->setupBuffers("./src/cube.obj", "vPosition", "vColor", shader, cubeColors);
 
     glBindVertexArray(0);
 }
 
 // Sets attribute variables for later manipulation
 void setAttributes() {
- 
+
     Projection = glGetUniformLocation(shader, "Projection");
     ModelView  = glGetUniformLocation(shader, "ModelView");
 }
@@ -549,7 +519,7 @@ int main(int argc, char** argv) {
 
     // Set basic 3D data for basic OpenGL
     glEnable(GL_DEPTH_TEST);
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+    glClearColor(0.7355f, 0.8391f, 0.9482f, 1.0f);
 
     // Initialize a shader, given the desired paths
     initCamera();
@@ -563,9 +533,9 @@ int main(int argc, char** argv) {
     gridSize.depth  = 1;
     grid = new Grid(20, 10, gridSize, WorldObject::OBJ_VERTEX | WorldObject::OBJ_LINE);
 
-    axes = new Axes(WorldObject::OBJ_VERTEX | WorldObject::OBJ_LINE);
-    cube = new Cube(WorldObject::OBJ_VERTEX | WorldObject::OBJ_FACE);
-    arm  = new RobotArm();
+    axes   = new Axes(WorldObject::OBJ_VERTEX | WorldObject::OBJ_LINE);
+    arm    = new RobotArm();
+    cube   = new Cube(WorldObject::OBJ_VERTEX | WorldObject::OBJ_FACE);
 
     // Set up vertex buffers and vertex attribute arrays
     setAttributes();
@@ -577,10 +547,6 @@ int main(int argc, char** argv) {
     // Initialize grid to correct location and dimensions
     grid->translate(glm::vec3(0.f, 10.f, 0.f));
     grid->scale(glm::vec3(10.f, 10.f, 10.f));
-
-    // cube->translate(glm::vec3(0.5f, 0.5f, 0.f));
-    // cube->scale(glm::vec3(4.f, 3.f, 4.f));
-    // cube->translate(glm::vec3(-9.5f, 0.f, 0.f));
 
     // Go to GLUT main loop
     glutMainLoop();

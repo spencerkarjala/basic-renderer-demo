@@ -20,6 +20,8 @@ class Grid : public WorldObject {
     Dimension getSize();
     void setSize(Dimension size);
 
+    std::vector<float> getColors();
+
     private:
 
     int nRows, nCols;
