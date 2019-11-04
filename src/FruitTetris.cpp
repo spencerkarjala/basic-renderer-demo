@@ -16,6 +16,8 @@
 #include "Axes.h"
 #include "RobotArm.h"
 #include "Cube.h"
+#include "Number.h"
+#include "Scene.h"
 
 #define BASE_HEIGHT 5
 #define BASE_WIDTH  10
@@ -26,7 +28,6 @@
 #define VIEW_NEAR_CLIP 0.1f
 #define VIEW_FAR_CLIP  100.0f
 
-GLuint vPosition, vColor, Projection, ModelView;
 Grid* grid;
 Axes* axes;
 RobotArm* arm;
@@ -36,54 +37,62 @@ ObjReader reader;
 GameInstance gameState;
 Renderer* renderer;
 BoardMediator boardMediator;
+Number* num;
+Scene scene;
 
 int  rotateCamera    = 0;
 int  rotateTopArm    = 0;
 int  rotateBottomArm = 0;
 
+bool timeExpired = false;
+
 glm::mat4 mProjection;
 glm::mat4 mModelView;
 
-GLuint shader, VAO;
- 
-// Vertex colors for the 3D axis
-std::vector<float> axisColors = {   
-    1.0f, 0.0f, 0.0f, 1.0f,
-    1.0f, 0.0f, 0.0f, 1.0f,
-    0.0f, 1.0f, 0.0f, 1.0f,
-    0.0f, 1.0f, 0.0f, 1.0f,
-    0.0f, 0.0f, 1.0f, 1.0f,
-    0.0f, 0.0f, 1.0f, 1.0f
-};
-
-std::vector<float> gridColors = {
-    1.0f, 1.0f, 1.0f, 1.0f
-};
-
-// Closes the game, freeing any necessary data`
+// Closes the game, freeing any necessary data
 void closeGame() {
-    glDeleteVertexArrays(1, &VAO);
     delete grid;
-    delete camera;
     delete axes;
+    delete arm;
+    delete cube;
+    delete num;
+    delete camera;
     exit(0);
+}
+
+// Ends the game in the case where the player has run out of room to place blocks
+void endGame() {
+
+    gameState.toggleGameOver();
+
+    // Set each fruit available on the game board to be grey
+    Board* gameBoard = gameState.getBoard();
+    gameBoard->setCellsToGray();
 }
 
 // Drop tetromino on the board to the lowest position it can reach vertically
 void dropCurrentTetromino() {
     
-    Board*      board      = gameState.getBoard();
-    Tetromino*  tetromino  = board->getTetromino();
-    Fruit**     tetFruits  = tetromino->getFruits();
+    if (arm->isHolding()) {
+        Board*      board      = gameState.getBoard();
+        Tetromino*  tetromino  = board->getTetromino();
+        Fruit**     tetFruits  = tetromino->getFruits();
 
-    for (int index = 0; index < tetromino->NUM_FRUIT_PER_TETROMINO; index++) {
-        Coordinate fruitPos = tetFruits[index]->getPosition();
-        if (board->isOutOfBoundsAt(fruitPos) || board->isCollisionAt(fruitPos)) {
-            return;
+        for (int index = 0; index < tetromino->NUM_FRUIT_PER_TETROMINO; index++) {
+            Coordinate fruitPos = tetFruits[index]->getPosition();
+            if (board->isOutOfBoundsAt(fruitPos) || board->isCollisionAt(fruitPos)) {
+                if (gameState.timerHasExpired()) {
+                    endGame();
+                }
+                return;
+            }
         }
-    }
 
-    arm->toggleHold();
+        arm->toggleHold();
+        num->swapModel("./src/3dno5.obj");
+        gameState.resetTimer();
+        gameState.toggleTimerExpired();
+    }
 }
 
 // In the case of a down-arrow press, speed up the drop speed of the tetromino
@@ -114,7 +123,7 @@ void rotateTetrominoCCW() {
     Board*      gameBoard  = gameState.getBoard();
     Tetromino*  tetromino  = gameBoard->getTetromino();
 
-    if (tetromino != nullptr) {
+    if (tetromino != nullptr && arm->isHolding()) {
         tetromino->rotateCCW();
     }
 }
@@ -127,23 +136,7 @@ void slowDownTetrominoDrop() {
     gameState.setNextTickTime(currentTime + newTickLength);
 }
 
-// Ends the game in the case where the player has run out of room to place blocks
-void endGame() {
-
-    // // Set the game mode to "game over"
-    // gameState.toggleGameOver();
-
-    // // Set each fruit available on the game board to be grey
-    // Board* gameBoard = gameState.getBoard();
-    // gameBoard->setCellsToGray();
-
-    // // Draw the newly greyed-out fruits on the game board
-    // glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    // renderer.draw(gameBoard, grid);
-    // glutSwapBuffers();
-}
-
-// Move the current tetromino down by one cell on the board
+// Move the current tetromino down by  cell on the board
 void moveTetrominoDown() {
 
     Board* gameBoard = gameState.getBoard();
@@ -185,13 +178,28 @@ void updateGame() {
             double currentTime = gameState.getCurrentTime();
 
             // Lock player key input during critical tetromino calculations
-            gameState.toggleInputLock();
             gameState.setNextRefreshTime(currentTime + refreshRate);
 
             // Drop the tetromino down one block if enough time has elapsed
             if (currentTime >= gameState.getNextTickTime() && !arm->isHolding()) {
                 gameState.setNextTickTime(currentTime + gameState.getTickLength());
                 moveTetrominoDown();
+            }
+
+            if (currentTime >= gameState.getNextHoldTime() && arm->isHolding()) {
+                gameState.setNextHoldTime(currentTime + gameState.getTickLength());
+                if (gameState.getTimer() == 0) {
+                    gameState.toggleTimerExpired();
+                    dropCurrentTetromino();
+                }
+                else {
+                    gameState.decrementTimer();
+                    int curCount = gameState.getTimer();
+                    char* path = new char;
+                    sprintf(path, "./src/3dno%d.obj", curCount);
+                    num->swapModel(path);
+                    delete path;
+                }
             }
 
             glm::vec3 tetPosition = arm->getTipLocation(mModelView);
@@ -204,7 +212,6 @@ void updateGame() {
             }
 
             // Allow for player key input
-            gameState.toggleInputLock();
         }
     }
 }
@@ -228,6 +235,9 @@ void drawFruit(Fruit* fruit) {
     Board*      board     = gameState.getBoard();
     Tetromino*  tetromino = board->getTetromino();
 
+    unsigned int Projection = scene.getSceneData().projection;
+    unsigned int ModelView  = scene.getSceneData().modelView;
+
     if (tetromino != NULL && tetromino->fruitBelongsToTetromino(fruit)) { 
         if (board->isOutOfBoundsAt(position) || board->isCollisionAt(position)) {
             color.red  = 0.3f; color.green = 0.3f;
@@ -239,8 +249,7 @@ void drawFruit(Fruit* fruit) {
 
     if (fruit != nullptr) {
 
-
-        cube->changeColor(cubeColors);
+        cube->swapColor(cubeColors);
         cube->translate(glm::vec3(position.x - 4.5f, position.y + 0.5f, 0.f));
 
         if (!tetromino->fruitBelongsToTetromino(fruit)) {
@@ -249,12 +258,11 @@ void drawFruit(Fruit* fruit) {
 
         glm::mat4 fruitModel = mModelView * cube->getModel();
         glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(fruitModel));
-        cube->draw(GL_TRIANGLES);
+        cube->draw(mModelView);
         if (!tetromino->fruitBelongsToTetromino(fruit)) {
             cube->scale(glm::vec3(1.f / 0.99f, 1.f / 0.99f, 1.f / 0.99f));
         }
         cube->translate(glm::vec3(4.5f - position.x, -position.y - 0.5f, 0.f));
-
     }
 }
 
@@ -303,43 +311,53 @@ void refresh(void) {
     updateGame();
 
     if (rotateCamera != 0) {
-        camera->rotate(0.02f * rotateCamera, glm::vec3(0.f, 1.f, 0.f));
+        scene.rotateCamera(0.04f * rotateCamera);
+        camera->rotate(0.04f * rotateCamera, glm::vec3(0.f, 1.f, 0.f));
     }
     if (rotateBottomArm != 0) {
-        arm->rotateBottom(0.005f * rotateBottomArm);
+        arm->rotateBottom(0.04f * rotateBottomArm);
     }
     if (rotateTopArm != 0) {
-        arm->rotateTop(0.005f * rotateTopArm);
+        arm->rotateTop(0.04f * rotateTopArm);
     }
     
-    // Clear color and z-buffers
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
+    scene.refresh();
+
     // Calculate the model-view matrix
     mModelView = camera->getView();
-    mModelView = mModelView * glm::mat4x4(1.f);
 
-    // Set up the shader and the MVP matrices
-    glUseProgram(shader);
-    glUniformMatrix4fv(Projection, 1, false, glm::value_ptr(mProjection));
-    glUniformMatrix4fv(ModelView,  1, false, glm::value_ptr(mModelView));
-    glBindVertexArray(VAO);
+    unsigned int Projection = scene.getSceneData().projection;
+    unsigned int ModelView  = scene.getSceneData().modelView;
 
-    // arm->draw(ModelView, mModelView);
+    // // Set up the shader and the MVP matrices
+    // glUseProgram(scene.getShader());
+    // glUniformMatrix4fv(Projection, 1, false, glm::value_ptr(mProjection));
+    // glUniformMatrix4fv(ModelView,  1, false, glm::value_ptr(mModelView));
+    // glBindVertexArray(scene.getVAO());
+
+    // glm::mat4 modle = mModelView * arm->getModel();
+    // glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(modle));
+
+
+
+
+    arm->draw(ModelView, mModelView);
 
     // glm::mat4 axesModel = mModelView * axes->getModel();
     // glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(axesModel));
-    // axes->draw(GL_LINES);
+    // axes->draw();
 
     // glm::mat4 gridModel = mModelView * grid->getModel();
     // glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(gridModel));
-    // grid->draw(GL_LINES);
+    // grid->draw();
 
-    // drawBoard();
+    // glm::mat4 numModel = mModelView * num->getModel();
+    // glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(numModel));
+    // num->draw();
 
-    // drawTetromino();
+    drawBoard();
 
-    glutBitmapCharacter(GLUT_BITMAP_8_BY_13, 'O');
+    drawTetromino();
 
     glBindVertexArray(0);
  
@@ -347,19 +365,24 @@ void refresh(void) {
 }
 
 void reshape(int width, int height) {
+
+    scene.reshape(width, height);
+
+    // unsigned int Projection = scene.getSceneData().projection;
+    // unsigned int ModelView  = scene.getSceneData().modelView;
  
-    // Set the viewport to be the entire window
-    glViewport(0, 0, width, height);
+    // // Set the viewport to be the entire window
+    // glViewport(0, 0, width, height);
 
-    // Update the aspect ratio for the frustum
-    camera->setFOV((float) width / (float) height);
+    // // Update the aspect ratio for the frustum
+    // camera->setFOV((float) width / (float) height);
 
-    // Set up perspective matrix for the frustum
-    mProjection = camera->getProjection();
+    // // Set up perspective matrix for the frustum
+    // mProjection = camera->getProjection();
     
-    // Set model, view, and projection matrices
-    glUniformMatrix4fv(Projection, 1, GL_TRUE, glm::value_ptr(mProjection));
-    glUniformMatrix4fv(ModelView,  1, GL_TRUE, glm::value_ptr(mModelView));
+    // // Set model, view, and projection matrices
+    // glUniformMatrix4fv(Projection, 1, GL_TRUE, glm::value_ptr(mProjection));
+    // glUniformMatrix4fv(ModelView,  1, GL_TRUE, glm::value_ptr(mModelView));
 }
 
 // Listens for ASCII keyboard input
@@ -388,7 +411,7 @@ void normalKeyDownListener(unsigned char key, int x, int y) {
         case 'r':
         case 'R':
             gameState.restart();    break; // R <=> restart game
-        case ' ':                  
+        case ' ':
             dropCurrentTetromino(); break; // Space <=> drop tetromino
     }
 }
@@ -462,14 +485,24 @@ void initGlutSettings() {
 void setVertexBuffers() {
 
     // Initalize the vertex array object
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
+    scene.setupBuffers();
+    unsigned int shader = scene.getSceneData().shader;
 
     // Set up buffers for coordinate axes
-    axes->setupBuffers("./src/axes.obj", "vPosition", "vColor", shader, axisColors);
+    axes->setupBuffers(
+        "./src/axes.obj",
+        "vPosition",
+        "vColor",
+        shader,
+        glm::vec4(0.f, 0.f, 0.f, 1.f));
 
     // Set up buffers for game grid
-    grid->setupBuffers("./src/grid.obj", "vPosition","vColor", shader, grid->getColors());
+    grid->setupBuffers(
+        "./src/grid.obj",
+        "vPosition",
+        "vColor",
+        shader,
+        glm::vec4(0.f, 0.f, 0.f, 1.f));
 
     arm->init(shader);
 
@@ -479,7 +512,20 @@ void setVertexBuffers() {
 
     std::vector<float> cubeColors = generateCubeColors(cubeColor);
 
-    cube->setupBuffers("./src/cube.obj", "vPosition", "vColor", shader, cubeColors);
+    cube->setupBuffers(
+        "./src/cube.obj",
+        "vPosition",
+        "vColor",
+        shader,
+        glm::vec4(0.f, 0.f, 0.f, 1.f));
+
+    num->setupBuffers(
+        "./src/3dno2.obj",
+        "vPosition",
+        "vColor",
+        shader,
+        glm::vec4(1.f, 1.f, 1.f, 1.f));
+    num->swapModel("./src/3dno5.obj");
 
     glBindVertexArray(0);
 }
@@ -487,20 +533,29 @@ void setVertexBuffers() {
 // Sets attribute variables for later manipulation
 void setAttributes() {
 
-    Projection = glGetUniformLocation(shader, "Projection");
-    ModelView  = glGetUniformLocation(shader, "ModelView");
+    // Projection = glGetUniformLocation(shader, "Projection");
+    // ModelView  = glGetUniformLocation(shader, "ModelView");
 }
 
 // Creates a camera with default parameters
-void initCamera() {
+void initScene() {
 
     // Retrieve window dimensions for aspect ratio
     float width  = glutGet(GLUT_WINDOW_WIDTH);
     float height = glutGet(GLUT_WINDOW_HEIGHT);
 
+    float aspect = width / height;
+    float vectors[9] = {
+        20.f, 26.f, 20.f,
+         0.f, 10.f,  0.f,
+         0.f,  1.f,  0.f
+    };
+
+    scene.setupCamera(vectors, VIEW_FOV, aspect, VIEW_NEAR_CLIP, VIEW_FAR_CLIP);
+
     // Create a new camera
     camera = new Camera(
-        glm::vec3(20.f, 25.f, 20.f),  // Position vector
+        glm::vec3(20.f, 26.f, 20.f),  // Position vector
         glm::vec3( 0.f, 10.f,  0.f),  // Target vector
         glm::vec3( 0.f,  1.f,  0.f),  // Up vector
         VIEW_FOV,                     // Field of view
@@ -522,20 +577,30 @@ int main(int argc, char** argv) {
     glClearColor(0.7355f, 0.8391f, 0.9482f, 1.0f);
 
     // Initialize a shader, given the desired paths
-    initCamera();
     Shader newShader("./src/test.vert", "./src/test.frag");
-    shader = newShader.getID();
+
+    initScene();
+    scene.setShader(newShader.getID());
 
     // Create a new grid object
     Dimension gridSize;
     gridSize.width  = 10;
     gridSize.height = 20;
     gridSize.depth  = 1;
-    grid = new Grid(20, 10, gridSize, WorldObject::OBJ_VERTEX | WorldObject::OBJ_LINE);
+    grid = new Grid(20, 10, gridSize, SimpleObject::OBJ_VERTEX | SimpleObject::OBJ_LINE, GL_LINES);
 
-    axes   = new Axes(WorldObject::OBJ_VERTEX | WorldObject::OBJ_LINE);
-    arm    = new RobotArm();
-    cube   = new Cube(WorldObject::OBJ_VERTEX | WorldObject::OBJ_FACE);
+
+    axes  = new Axes(SimpleObject::OBJ_VERTEX | SimpleObject::OBJ_LINE, GL_LINES);
+    arm   = new RobotArm(SimpleObject::OBJ_VERTEX | SimpleObject::OBJ_LINE, GL_TRIANGLES);
+    cube  = new Cube(SimpleObject::OBJ_VERTEX | SimpleObject::OBJ_FACE, GL_TRIANGLES);
+    num   = new Number(SimpleObject::OBJ_VERTEX | SimpleObject::OBJ_FACE, GL_TRIANGLES);
+
+    scene.insertObject("Grid", grid);
+    scene.insertObject("Axes", axes);
+    scene.insertObject("Num", num);
+    // scene.insertObject("Arm", arm);
+
+
 
     // Set up vertex buffers and vertex attribute arrays
     setAttributes();
@@ -547,6 +612,10 @@ int main(int argc, char** argv) {
     // Initialize grid to correct location and dimensions
     grid->translate(glm::vec3(0.f, 10.f, 0.f));
     grid->scale(glm::vec3(10.f, 10.f, 10.f));
+
+    num->translate(glm::vec3(0.f, 21.f, 0.f));
+    num->rotate(M_PI / 2, glm::vec3(1.f, 0.f, 0.f));
+    num->scale(glm::vec3(0.2f, 0.2f, 0.2f));
 
     // Go to GLUT main loop
     glutMainLoop();

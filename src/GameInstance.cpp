@@ -12,9 +12,12 @@ GameInstance::GameInstance() {
     this->refreshRate     = 1000.0 / 30;
     this->nextTickTime    = this->getCurrentTime() + this->tickLength;
     this->nextRefreshTime = this->getCurrentTime() + this->refreshRate;
+    this->nextHoldTime    = this->getCurrentTime() + this->tickLength;
     this->paused          = false;
-    this->inputLocked     = false;
     this->gameOver        = false;
+    this->timerExpired    = false;
+    this->timerMax        = 5;
+    this->timer           = 5;
     this->board = new Board(GAME_WIDTH-20, GAME_HEIGHT-20, NUM_COLUMNS, NUM_ROWS, 10, 10);
 }
 GameInstance::~GameInstance() {
@@ -42,12 +45,11 @@ bool GameInstance::isPaused() {
     return this->paused;
 }
 
-void GameInstance::toggleInputLock() {
-    this->inputLocked = this->inputLocked ^ 1;
+void GameInstance::toggleTimerExpired() {
+    this->timerExpired = this->timerExpired ^ 1;
 }
-
-bool GameInstance::inputIsLocked() {
-    return this->inputLocked;
+bool GameInstance::timerHasExpired() {
+    return this->timerExpired;
 }
 
 void GameInstance::toggleGameOver() {
@@ -70,6 +72,31 @@ double GameInstance::getNextRefreshTime() {
 }
 void GameInstance::setNextRefreshTime(double nextRefreshTime) {
     this->nextRefreshTime = nextRefreshTime;
+}
+
+double GameInstance::getNextHoldTime() {
+    return this->nextHoldTime;
+}
+void GameInstance::setNextHoldTime(double nextHoldTime) {
+    this->nextHoldTime = nextHoldTime;
+}
+
+int GameInstance::getTimer() {
+    return this->timer;
+}
+
+bool GameInstance::decrementTimer() {
+    
+    bool  expired  = this->timer == 0;
+    int   a        = this->timer;
+    int   b        = this->timerMax + 1;
+    
+    this->timer = (a % b + b - 1) % b;
+    return expired;
+}
+
+void GameInstance::resetTimer() {
+    this->timer = this->timerMax;
 }
 
 Board* GameInstance::getBoard() {
@@ -99,8 +126,8 @@ void GameInstance::restart() {
     this->refreshRate     = 1000.0 / 30;
     this->nextTickTime    = this->getCurrentTime() + this->tickLength;
     this->nextRefreshTime = this->getCurrentTime() + this->refreshRate;
+    this->nextHoldTime    = this->getCurrentTime() + this->tickLength;
     this->paused          = false;
-    this->inputLocked     = true;
     this->gameOver        = false;
     this->board = new Board(GAME_WIDTH-20, GAME_HEIGHT-20, NUM_COLUMNS, NUM_ROWS, 10, 10);
 }

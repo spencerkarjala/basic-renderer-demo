@@ -1,13 +1,13 @@
 #ifndef AXES_H
 #define AXES_H
 
-#include "WorldObject.h"
+#include "SimpleObject.h"
 
-class Axes : public WorldObject {
+class Axes : public SimpleObject {
 
     public:
 
-    Axes(int flags) : WorldObject(flags) {}
+    Axes(int flags, int type) : SimpleObject(flags, type) {}
     ~Axes() {}
 };
 

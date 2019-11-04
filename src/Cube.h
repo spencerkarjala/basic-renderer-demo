@@ -1,13 +1,13 @@
 #ifndef CUBE_H
 #define CUBE_H
 
-#include "WorldObject.h"
+#include "SimpleObject.h"
 
-class Cube : public WorldObject {
+class Cube : public SimpleObject {
 
     public:
 
-    Cube(int flags) : WorldObject(flags) {}
+    Cube(int flags, int type) : SimpleObject(flags, type) {}
     ~Cube() {}
 };
 #endif

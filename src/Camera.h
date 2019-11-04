@@ -21,6 +21,9 @@ class Camera {
     glm::mat4 getView();
     glm::mat4 getProjection();
 
+    void printView();
+    void printProjection();
+
     private:
 
     glm::mat4 view, projection;

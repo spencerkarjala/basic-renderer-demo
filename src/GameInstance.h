@@ -21,17 +21,24 @@ class GameInstance {
     void flipPause();
     bool isPaused();
 
-    void toggleInputLock();
-    bool inputIsLocked();
-
     void toggleGameOver();
     bool gameIsOver();
+
+    void toggleTimerExpired();
+    bool timerHasExpired();
     
     double getNextTickTime();
     void setNextTickTime(double nextTickTime);
 
     double getNextRefreshTime();
     void setNextRefreshTime(double nextTickTime);
+
+    double getNextHoldTime();
+    void setNextHoldTime(double nextHoldTime);
+
+    int getTimer();
+    bool decrementTimer();
+    void resetTimer();
 
     Board* getBoard();
 
@@ -44,9 +51,12 @@ class GameInstance {
     double refreshRate;
     double nextTickTime;
     double nextRefreshTime;
+    double nextHoldTime;
+    int timerMax;
+    int timer;
     bool paused;
-    bool inputLocked;
     bool gameOver;
+    bool timerExpired;
     Board* board;
 };
 

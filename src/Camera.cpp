@@ -2,6 +2,8 @@
 #include <math.h>
 #include "Camera.h"
 
+
+#include "stdio.h"
 Camera::Camera(glm::vec3 position, glm::vec3 target, glm::vec3 up,
                float fov, float aspect, float zNear, float zFar) {
     this->position   = position;

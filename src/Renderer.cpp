@@ -3,12 +3,11 @@
 #include <math.h>
 #include <vector>
 #include <stdio.h>
-#include "Space3D.h"
 #include "Renderer.h"
 
 Renderer::Renderer(unsigned int shader) {
     // this->shader = shader;
-    // this->cube = new Cube(WorldObject::OBJ_VERTEX | WorldObject::OBJ_FACE);
+    // this->cube = new Cube(SimpleObject::OBJ_VERTEX | SimpleObject::OBJ_FACE);
     // cube->setupBuffers("./src/cube.obj", "vPosition", "vColor", shader, cubeColors);
 }
 Renderer::~Renderer() {}

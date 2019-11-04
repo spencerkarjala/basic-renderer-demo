@@ -6,6 +6,7 @@
 
 #include "stdio.h"
 
+#define NUM_OBJECTS  4
 #define B_ARM_HEIGHT 11.f
 #define T_ARM_HEIGHT 12.f
 
@@ -42,18 +43,26 @@ std::vector<float> bArmColors {
     0.0f, 0.0f, 1.0f, 1.0f
 };
 
-RobotArm::RobotArm() {
+// RobotArm::RobotArm(unsigned int flags, unsigned int type) : CompoundObject() {
+RobotArm::RobotArm(unsigned int flags, unsigned int type) {
 
-    int flags      = WorldObject::OBJ_VERTEX | WorldObject::OBJ_FACE;
-    this->base     = new Cube(flags);
-    this->bArm     = new Cube(flags);
-    this->tArm     = new Cube(flags);
-    this->tip      = new Cube(flags);
+    // for (int index = 0; index < NUM_OBJECTS; index++) {
+    //     this->objects.push_back(new Cube(flags, type));
+    // }
+    // this->holding = false;
+    flags      = SimpleObject::OBJ_VERTEX | SimpleObject::OBJ_FACE;
+    this->base     = new Cube(flags, GL_TRIANGLES);
+    this->bArm     = new Cube(flags, GL_TRIANGLES);
+    this->tArm     = new Cube(flags, GL_TRIANGLES);
+    this->tip      = new Cube(flags, GL_TRIANGLES);
     this->holding  = false;
 }
 
 RobotArm::~RobotArm() {
 
+    // for (unsigned index = 0; index < this->objects.size(); index++) {
+    //     delete this->objects[index];
+    // }
     delete this->base;
     delete this->bArm;
     delete this->tArm;
@@ -61,20 +70,43 @@ RobotArm::~RobotArm() {
 }
 
 void RobotArm::init(unsigned int shader) {
+    // this->objects[0]->setupBuffers("./src/cube.obj", "vPosition", "vColor", 
+    //     shader, glm::vec4(1.f, 0.f, 0.f, 1.f));
+    // this->objects[0]->translate(glm::vec3(-8.f, 0.f, 0.f));
+    // this->objects[0]->scale(glm::vec3(4.f, 2.f, 4.f));
 
-    this->base->setupBuffers("./src/cube.obj", "vPosition", "vColor", shader, baseColors);
+    // this->objects[1]->setupBuffers("./src/cube.obj", "vPosition", "vColor",
+    //     shader, glm::vec4(0.f, 0.f, 1.f, 1.f));
+    // this->objects[1]->translate(glm::vec3(0.f, (B_ARM_HEIGHT + 2.f) / 4, 0.f));
+    // this->objects[1]->scale(glm::vec3(0.25f, B_ARM_HEIGHT / 2.f, 0.25f));
+    
+    // this->objects[2]->setupBuffers("./src/cube.obj", "vPosition", "vColor",
+    //     shader, glm::vec4(0.f, 1.f, 0.f, 1.f));
+    // this->objects[2]->translate(glm::vec3(T_ARM_HEIGHT / 2.f, 0.5f, 0.f));
+    // this->objects[2]->scale(glm::vec3(T_ARM_HEIGHT, 1.f / B_ARM_HEIGHT, 1.f));
+    
+    // this->objects[3]->setupBuffers("./src/cube.obj", "vPosition", "vColor",
+    //     shader, glm::vec4(0.f, 0.f, 0.f, 1.f));
+    // this->objects[3]->translate(glm::vec3(0.5f, 0.f, 0.f));
+    // this->objects[3]->scale(glm::vec3(1.f / T_ARM_HEIGHT, 1.f, 1.f));
+    
+    this->base->setupBuffers("./src/cube.obj", "vPosition", "vColor", 
+        shader, glm::vec4(1.f, 0.f, 0.f, 1.f));
     this->base->translate(glm::vec3(-8.f, 0.f, 0.f));
     this->base->scale(glm::vec3(4.f, 2.f, 4.f));
 
-    this->bArm->setupBuffers("./src/cube.obj", "vPosition", "vColor", shader, bArmColors);
+    this->bArm->setupBuffers("./src/cube.obj", "vPosition", "vColor",
+        shader, glm::vec4(0.f, 0.f, 1.f, 1.f));
     this->bArm->translate(glm::vec3(0.f, (B_ARM_HEIGHT + 2.f) / 4, 0.f));
     this->bArm->scale(glm::vec3(0.25f, B_ARM_HEIGHT / 2.f, 0.25f));
     
-    this->tArm->setupBuffers("./src/cube.obj", "vPosition", "vColor", shader, tArmColors);
+    this->tArm->setupBuffers("./src/cube.obj", "vPosition", "vColor",
+        shader, glm::vec4(0.f, 1.f, 0.f, 1.f));
     this->tArm->translate(glm::vec3(T_ARM_HEIGHT / 2.f, 0.5f, 0.f));
     this->tArm->scale(glm::vec3(T_ARM_HEIGHT, 1.f / B_ARM_HEIGHT, 1.f));
     
-    this->tip->setupBuffers("./src/cube.obj", "vPosition", "vColor", shader, baseColors);
+    this->tip->setupBuffers("./src/cube.obj", "vPosition", "vColor",
+        shader, glm::vec4(0.f, 0.f, 0.f, 1.f));
     this->tip->translate(glm::vec3(0.5f, 0.f, 0.f));
     this->tip->scale(glm::vec3(1.f / T_ARM_HEIGHT, 1.f, 1.f));
 }
@@ -98,19 +130,19 @@ void RobotArm::draw(unsigned int ModelView, glm::mat4 mModelView) {
 
     glm::mat4 armModel = mModelView * this->base->getModel();
     glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(armModel));
-    this->base->draw(GL_TRIANGLES);
+    this->base->draw(armModel);
 
     glm::mat4 bArmModel = armModel * this->bArm->getModel();
     glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(bArmModel));
-    this->bArm->draw(GL_TRIANGLES);
+    this->bArm->draw(armModel);
 
     glm::mat4 tArmModel = bArmModel * this->tArm->getModel();
     glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(tArmModel));
-    this->tArm->draw(GL_TRIANGLES);
+    this->tArm->draw(armModel);
 
     // glm::mat4 tipModel = tArmModel * this->tip->getModel();
     // glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(tipModel));
-    // this->tip->draw(GL_TRIANGLES);
+    // this->tip->draw();
 }
 
 void RobotArm::rotateBottom(float theta) {

@@ -1,42 +1,53 @@
 #include <GL/glew.h>
 #include <../lib/glm/gtc/matrix_transform.hpp>
-#include "WorldObject.h"
+#include "SimpleObject.h"
 #include "ObjReader.h"
 
-WorldObject::WorldObject() {
+SimpleObject::SimpleObject() {
     this->model = glm::mat4(1.f);
     this->flags = 0;
 }
 
-WorldObject::WorldObject(int flags) {
+SimpleObject::SimpleObject(int flags, int type) {
     this->model = glm::mat4(1.f);
     this->flags = flags;
+    this->type  = type;
 }
 
-WorldObject::~WorldObject() {}
+SimpleObject::~SimpleObject() {}
 
-void WorldObject::setFlags(int flags) {
+void SimpleObject::setFlags(int flags) {
     this->flags = flags;
 }
 
-glm::mat4 WorldObject::getModel() {
+glm::mat4 SimpleObject::getModel() {
     return this->model;
 }
 
-void WorldObject::scale(glm::vec3 scaleVec) {
+void SimpleObject::scale(glm::vec3 scaleVec) {
     this->model = glm::scale(this->model, scaleVec);
 }
 
-void WorldObject::translate(glm::vec3 transVec) {
+void SimpleObject::translate(glm::vec3 transVec) {
     this->model = glm::translate(this->model, transVec);
 }
 
-void WorldObject::rotate(float theta, glm::vec3 axis) {
+void SimpleObject::rotate(float theta, glm::vec3 axis) {
     this->model = glm::rotate(this->model, theta, axis);
 }
 
-void WorldObject::setupBuffers(const char* path, const char* vAttrS, 
-    const char* cAttrS, unsigned int shader, std::vector<float> colors) {
+std::vector<float> generateColors(int numVertices, glm::vec4 color) {
+
+    std::vector<float> colors;
+    for (int index = 0; index < numVertices; index++) {
+        colors.push_back(color.x); colors.push_back(color.y);
+        colors.push_back(color.z); colors.push_back(color.w);
+    }
+    return colors;
+}
+
+void SimpleObject::setupBuffers(const char* path, const char* vAttrS, 
+    const char* cAttrS, unsigned int shader, glm::vec4 color) {
 
     // Read .obj data from file at given path
     ObjReader reader;
@@ -51,6 +62,9 @@ void WorldObject::setupBuffers(const char* path, const char* vAttrS,
     else if ((this->flags & OBJ_FACE) != 0) {
         indices = data.faceIndices;
     }
+
+    int numVertices = floor(vertices.size() / 4.f);
+    std::vector<float> colors = generateColors(numVertices, color);
 
     // Bind, fill, and locate the buffer used for vertex data
     glGenBuffers(1, &this->vboVertex);
@@ -82,7 +96,22 @@ void WorldObject::setupBuffers(const char* path, const char* vAttrS,
         GL_STATIC_DRAW);
 }
 
-void WorldObject::changeColor(std::vector<float> colors) {
+void SimpleObject::swapModel(const char* path) {
+
+    ObjReader reader;
+    ObjReader::ObjData  data      = reader.readValues(path);
+    std::vector<float>  vertices  = data.vertices;
+
+    glBindBuffer(GL_ARRAY_BUFFER, this->vboVertex);
+    glBufferData(
+        GL_ARRAY_BUFFER,
+        sizeof(float) * vertices.size(),
+        &vertices[0],
+        GL_STATIC_DRAW
+    );
+}
+
+void SimpleObject::swapColor(std::vector<float> colors) {
     
     glBindBuffer(GL_ARRAY_BUFFER, this->vboColor);
     glBufferData(
@@ -93,7 +122,7 @@ void WorldObject::changeColor(std::vector<float> colors) {
     );
 }
 
-void WorldObject::draw(unsigned int type) {
+void SimpleObject::draw(glm::mat4 mModelView) {
 
     GLint bufSize = 0;
     
@@ -114,5 +143,5 @@ void WorldObject::draw(unsigned int type) {
     glGetBufferParameteriv(GL_ELEMENT_ARRAY_BUFFER, GL_BUFFER_SIZE, &bufSize);
 
     // Draw the object
-    glDrawElements(type, bufSize / sizeof(unsigned int), GL_UNSIGNED_INT, 0);
+    glDrawElements(this->type, bufSize / sizeof(unsigned int), GL_UNSIGNED_INT, 0);
 }

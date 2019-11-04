@@ -1,14 +1,14 @@
 #ifndef GRID_H
 #define GRID_H
 
-#include "WorldObject.h"
+#include "SimpleObject.h"
 #include "Dimension.h"
 
-class Grid : public WorldObject {
+class Grid : public SimpleObject {
     
     public:
 
-    Grid(int nRows, int nCols, Dimension size, int flags);
+    Grid(int nRows, int nCols, Dimension size, int flags, int type);
     ~Grid();
 
     int getNumRows();

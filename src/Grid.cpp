@@ -1,6 +1,7 @@
 #include "Grid.h"
 
-Grid::Grid(int nRows, int nCols, Dimension size, int flags) : WorldObject(flags){
+Grid::Grid(int nRows, int nCols, Dimension size, int flags, int type) 
+    : SimpleObject(flags, type){
     this->nRows = nRows;
     this->nCols = nCols;
     this->size  = size;

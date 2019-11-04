@@ -7,12 +7,12 @@
 #include "Color.h"
 #include "Direction.h"
 #include "Vector.h"
-#include "WorldObject.h"
+#include "SimpleObject.h"
 
 /*  Implements a simple fruit which occupies a given cell of the main game
     board. Contains state information and the ability to move given a vector.   */
 
-class Fruit : public WorldObject {
+class Fruit : public SimpleObject {
 
     public:
     Fruit();
