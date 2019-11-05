@@ -46,10 +46,6 @@ std::vector<float> bArmColors {
 // RobotArm::RobotArm(unsigned int flags, unsigned int type) : CompoundObject() {
 RobotArm::RobotArm(unsigned int flags, unsigned int type) {
 
-    // for (int index = 0; index < NUM_OBJECTS; index++) {
-    //     this->objects.push_back(new Cube(flags, type));
-    // }
-    // this->holding = false;
     flags      = SimpleObject::OBJ_VERTEX | SimpleObject::OBJ_FACE;
     this->base     = new Cube(flags, GL_TRIANGLES);
     this->bArm     = new Cube(flags, GL_TRIANGLES);
@@ -59,10 +55,6 @@ RobotArm::RobotArm(unsigned int flags, unsigned int type) {
 }
 
 RobotArm::~RobotArm() {
-
-    // for (unsigned index = 0; index < this->objects.size(); index++) {
-    //     delete this->objects[index];
-    // }
     delete this->base;
     delete this->bArm;
     delete this->tArm;
@@ -70,25 +62,6 @@ RobotArm::~RobotArm() {
 }
 
 void RobotArm::init(unsigned int shader) {
-    // this->objects[0]->setupBuffers("./src/cube.obj", "vPosition", "vColor", 
-    //     shader, glm::vec4(1.f, 0.f, 0.f, 1.f));
-    // this->objects[0]->translate(glm::vec3(-8.f, 0.f, 0.f));
-    // this->objects[0]->scale(glm::vec3(4.f, 2.f, 4.f));
-
-    // this->objects[1]->setupBuffers("./src/cube.obj", "vPosition", "vColor",
-    //     shader, glm::vec4(0.f, 0.f, 1.f, 1.f));
-    // this->objects[1]->translate(glm::vec3(0.f, (B_ARM_HEIGHT + 2.f) / 4, 0.f));
-    // this->objects[1]->scale(glm::vec3(0.25f, B_ARM_HEIGHT / 2.f, 0.25f));
-    
-    // this->objects[2]->setupBuffers("./src/cube.obj", "vPosition", "vColor",
-    //     shader, glm::vec4(0.f, 1.f, 0.f, 1.f));
-    // this->objects[2]->translate(glm::vec3(T_ARM_HEIGHT / 2.f, 0.5f, 0.f));
-    // this->objects[2]->scale(glm::vec3(T_ARM_HEIGHT, 1.f / B_ARM_HEIGHT, 1.f));
-    
-    // this->objects[3]->setupBuffers("./src/cube.obj", "vPosition", "vColor",
-    //     shader, glm::vec4(0.f, 0.f, 0.f, 1.f));
-    // this->objects[3]->translate(glm::vec3(0.5f, 0.f, 0.f));
-    // this->objects[3]->scale(glm::vec3(1.f / T_ARM_HEIGHT, 1.f, 1.f));
     
     this->base->setupBuffers("./src/cube.obj", "vPosition", "vColor", 
         shader, glm::vec4(1.f, 0.f, 0.f, 1.f));

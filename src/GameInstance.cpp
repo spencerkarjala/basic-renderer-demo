@@ -85,14 +85,16 @@ int GameInstance::getTimer() {
     return this->timer;
 }
 
-bool GameInstance::decrementTimer() {
+void GameInstance::decrementTimer() {
     
-    bool  expired  = this->timer == 0;
+    if (this->timer == 0) {
+        this->timerExpired = true;
+    }
+
     int   a        = this->timer;
     int   b        = this->timerMax + 1;
     
     this->timer = (a % b + b - 1) % b;
-    return expired;
 }
 
 void GameInstance::resetTimer() {
@@ -129,5 +131,7 @@ void GameInstance::restart() {
     this->nextHoldTime    = this->getCurrentTime() + this->tickLength;
     this->paused          = false;
     this->gameOver        = false;
+    this->timerExpired    = false;
+    this->timer           = 5;
     this->board = new Board(GAME_WIDTH-20, GAME_HEIGHT-20, NUM_COLUMNS, NUM_ROWS, 10, 10);
 }

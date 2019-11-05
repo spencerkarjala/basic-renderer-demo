@@ -13,7 +13,6 @@
 #include "string.h"
 #include "Camera.h"
 #include "ObjReader.h"
-#include "Axes.h"
 #include "RobotArm.h"
 #include "Cube.h"
 #include "Number.h"
@@ -29,7 +28,6 @@
 #define VIEW_FAR_CLIP  100.0f
 
 Grid* grid;
-Axes* axes;
 RobotArm* arm;
 Cube* cube;
 Camera* camera;
@@ -52,7 +50,6 @@ glm::mat4 mModelView;
 // Closes the game, freeing any necessary data
 void closeGame() {
     delete grid;
-    delete axes;
     delete arm;
     delete cube;
     delete num;
@@ -74,10 +71,26 @@ void endGame() {
 void dropCurrentTetromino() {
     
     if (arm->isHolding()) {
-        Board*      board      = gameState.getBoard();
-        Tetromino*  tetromino  = board->getTetromino();
-        Fruit**     tetFruits  = tetromino->getFruits();
 
+        // Safely retrieve the current game board
+        Board*      board      = gameState.getBoard();
+        if (board == nullptr) {
+            return;
+        }
+
+        // Safely retrieve the tetromino currently placed on the board
+        Tetromino*  tetromino  = board->getTetromino();
+        if (tetromino == nullptr) {
+            return;
+        }
+
+        // Safely retrieve the fruit belonging to the tetromino
+        Fruit**     tetFruits  = tetromino->getFruits();
+        if (tetFruits == nullptr) {
+            return;
+        }
+
+        // Run through and check collision on each fruit; if collision, end game
         for (int index = 0; index < tetromino->NUM_FRUIT_PER_TETROMINO; index++) {
             Coordinate fruitPos = tetFruits[index]->getPosition();
             if (board->isOutOfBoundsAt(fruitPos) || board->isCollisionAt(fruitPos)) {
@@ -88,10 +101,10 @@ void dropCurrentTetromino() {
             }
         }
 
+        // Drop the fruit, swap the timer model, and reset the timer
         arm->toggleHold();
         num->swapModel("./src/3dno5.obj");
         gameState.resetTimer();
-        gameState.toggleTimerExpired();
     }
 }
 
@@ -123,7 +136,8 @@ void rotateTetrominoCCW() {
     Board*      gameBoard  = gameState.getBoard();
     Tetromino*  tetromino  = gameBoard->getTetromino();
 
-    if (tetromino != nullptr && arm->isHolding()) {
+    if (tetromino != nullptr && arm->isHolding() 
+        && !gameState.gameIsOver() && !gameState.isPaused()) {
         tetromino->rotateCCW();
     }
 }
@@ -164,6 +178,28 @@ void restartTetromino() {
     }
 }
 
+void updateTimer() {
+
+    double currentTime = gameState.getCurrentTime();
+
+    // Set the next timer tick and decrement the timer
+    gameState.setNextHoldTime(currentTime + gameState.getTickLength());
+    gameState.decrementTimer();
+
+    // Update the timer's current model
+    int curCount = gameState.getTimer();
+    char* path = new char;
+    sprintf(path, "./src/3dno%d.obj", curCount);
+    num->swapModel(path);
+    delete path;
+
+    // If the timer's expired, drop the tetromino and mark it expired
+    if (gameState.timerHasExpired()) {
+        dropCurrentTetromino();
+        gameState.toggleTimerExpired();
+    }
+}
+
 void updateGame() {
 
     if (!gameState.isPaused() && !gameState.gameIsOver()) {
@@ -186,20 +222,9 @@ void updateGame() {
                 moveTetrominoDown();
             }
 
+            // If it's time for the timer to tick and the arm is holding a shape
             if (currentTime >= gameState.getNextHoldTime() && arm->isHolding()) {
-                gameState.setNextHoldTime(currentTime + gameState.getTickLength());
-                if (gameState.getTimer() == 0) {
-                    gameState.toggleTimerExpired();
-                    dropCurrentTetromino();
-                }
-                else {
-                    gameState.decrementTimer();
-                    int curCount = gameState.getTimer();
-                    char* path = new char;
-                    sprintf(path, "./src/3dno%d.obj", curCount);
-                    num->swapModel(path);
-                    delete path;
-                }
+                updateTimer();
             }
 
             glm::vec3 tetPosition = arm->getTipLocation(mModelView);
@@ -210,8 +235,6 @@ void updateGame() {
             if (arm->isHolding()) {
                 boardMediator.updateTetrominoPosition(gameState.getBoard(), tetPosition);
             }
-
-            // Allow for player key input
         }
     }
 }
@@ -235,7 +258,6 @@ void drawFruit(Fruit* fruit) {
     Board*      board     = gameState.getBoard();
     Tetromino*  tetromino = board->getTetromino();
 
-    unsigned int Projection = scene.getSceneData().projection;
     unsigned int ModelView  = scene.getSceneData().modelView;
 
     if (tetromino != NULL && tetromino->fruitBelongsToTetromino(fruit)) { 
@@ -305,10 +327,21 @@ void drawTetromino() {
     }
 }
 
+void updateBackground() {
+    if (!gameState.gameIsOver()) {
+        glClearColor(0.7355f, 0.8391f, 0.9482f, 1.0f);
+    }
+    else {
+        glClearColor(0.9804f, 0.5020f, 0.4471f, 1.0f);
+    }
+}
+
 // Used to redraw the scene on each screen refresh
 void refresh(void) {
 
     updateGame();
+
+    updateBackground();
 
     if (rotateCamera != 0) {
         scene.rotateCamera(0.04f * rotateCamera);
@@ -326,34 +359,9 @@ void refresh(void) {
     // Calculate the model-view matrix
     mModelView = camera->getView();
 
-    unsigned int Projection = scene.getSceneData().projection;
     unsigned int ModelView  = scene.getSceneData().modelView;
 
-    // // Set up the shader and the MVP matrices
-    // glUseProgram(scene.getShader());
-    // glUniformMatrix4fv(Projection, 1, false, glm::value_ptr(mProjection));
-    // glUniformMatrix4fv(ModelView,  1, false, glm::value_ptr(mModelView));
-    // glBindVertexArray(scene.getVAO());
-
-    // glm::mat4 modle = mModelView * arm->getModel();
-    // glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(modle));
-
-
-
-
     arm->draw(ModelView, mModelView);
-
-    // glm::mat4 axesModel = mModelView * axes->getModel();
-    // glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(axesModel));
-    // axes->draw();
-
-    // glm::mat4 gridModel = mModelView * grid->getModel();
-    // glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(gridModel));
-    // grid->draw();
-
-    // glm::mat4 numModel = mModelView * num->getModel();
-    // glUniformMatrix4fv(ModelView, 1, false, glm::value_ptr(numModel));
-    // num->draw();
 
     drawBoard();
 
@@ -367,22 +375,17 @@ void refresh(void) {
 void reshape(int width, int height) {
 
     scene.reshape(width, height);
+}
 
-    // unsigned int Projection = scene.getSceneData().projection;
-    // unsigned int ModelView  = scene.getSceneData().modelView;
- 
-    // // Set the viewport to be the entire window
-    // glViewport(0, 0, width, height);
+void restartGame() {
+    gameState.restart(); // R <=> restart game
+    num->swapModel("./src/3dno5.obj");
+}
 
-    // // Update the aspect ratio for the frustum
-    // camera->setFOV((float) width / (float) height);
-
-    // // Set up perspective matrix for the frustum
-    // mProjection = camera->getProjection();
-    
-    // // Set model, view, and projection matrices
-    // glUniformMatrix4fv(Projection, 1, GL_TRUE, glm::value_ptr(mProjection));
-    // glUniformMatrix4fv(ModelView,  1, GL_TRUE, glm::value_ptr(mModelView));
+void pauseGame() {
+    gameState.flipPause();
+    rotateTopArm = 0;
+    rotateBottomArm = 0;
 }
 
 // Listens for ASCII keyboard input
@@ -392,27 +395,43 @@ void normalKeyDownListener(unsigned char key, int x, int y) {
 
         case 'q':
         case 'Q':
-            closeGame();            break; // Q <=> quit game
+            closeGame();                   // Q <=> quit game
+            break; 
         case 's':
         case 'S':
-            rotateTopArm = 1;       break; // S <=> rotate arm top
+            if (!gameState.isPaused()) {
+                rotateTopArm = 1;          // S <=> rotate arm top
+            }
+            break;
         case 'w':
         case 'W':
-            rotateTopArm = -1;      break; // W <=> rotate arm top
+            if (!gameState.isPaused()) {
+                rotateTopArm = -1;         // W <=> rotate arm top
+            }
+            break;
         case 'a':
         case 'A':
-            rotateBottomArm = 1;    break; // A <=> rotate arm bottom
+            if (!gameState.isPaused()) {
+                rotateBottomArm = 1;       // A <=> rotate arm bottom
+            }
+            break;
         case 'd':
         case 'D':
-            rotateBottomArm = -1;   break; // D <=> rotate arm bottom
+            if (!gameState.isPaused()) {
+                rotateBottomArm = -1;      // D <=> rotate arm bottom
+            }
+            break;
         case 'p':
         case 'P':
-            gameState.flipPause();  break; // P <=> pause game
+            pauseGame();         // P <=> pause game
+            break;
         case 'r':
         case 'R':
-            gameState.restart();    break; // R <=> restart game
+            restartGame();                 // R <=> restart game
+            break;
         case ' ':
-            dropCurrentTetromino(); break; // Space <=> drop tetromino
+            dropCurrentTetromino();        // Space <=> drop tetromino
+            break;
     }
 }
 
@@ -488,14 +507,6 @@ void setVertexBuffers() {
     scene.setupBuffers();
     unsigned int shader = scene.getSceneData().shader;
 
-    // Set up buffers for coordinate axes
-    axes->setupBuffers(
-        "./src/axes.obj",
-        "vPosition",
-        "vColor",
-        shader,
-        glm::vec4(0.f, 0.f, 0.f, 1.f));
-
     // Set up buffers for game grid
     grid->setupBuffers(
         "./src/grid.obj",
@@ -528,13 +539,6 @@ void setVertexBuffers() {
     num->swapModel("./src/3dno5.obj");
 
     glBindVertexArray(0);
-}
-
-// Sets attribute variables for later manipulation
-void setAttributes() {
-
-    // Projection = glGetUniformLocation(shader, "Projection");
-    // ModelView  = glGetUniformLocation(shader, "ModelView");
 }
 
 // Creates a camera with default parameters
@@ -590,25 +594,16 @@ int main(int argc, char** argv) {
     grid = new Grid(20, 10, gridSize, SimpleObject::OBJ_VERTEX | SimpleObject::OBJ_LINE, GL_LINES);
 
 
-    axes  = new Axes(SimpleObject::OBJ_VERTEX | SimpleObject::OBJ_LINE, GL_LINES);
     arm   = new RobotArm(SimpleObject::OBJ_VERTEX | SimpleObject::OBJ_LINE, GL_TRIANGLES);
     cube  = new Cube(SimpleObject::OBJ_VERTEX | SimpleObject::OBJ_FACE, GL_TRIANGLES);
     num   = new Number(SimpleObject::OBJ_VERTEX | SimpleObject::OBJ_FACE, GL_TRIANGLES);
 
     scene.insertObject("Grid", grid);
-    scene.insertObject("Axes", axes);
     scene.insertObject("Num", num);
-    // scene.insertObject("Arm", arm);
-
-
 
     // Set up vertex buffers and vertex attribute arrays
-    setAttributes();
     setVertexBuffers();
 
-    // Initialize axes to the correct dimensions
-    axes->scale(glm::vec3(100.f, 100.f, 100.f));
-    
     // Initialize grid to correct location and dimensions
     grid->translate(glm::vec3(0.f, 10.f, 0.f));
     grid->scale(glm::vec3(10.f, 10.f, 10.f));

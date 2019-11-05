@@ -37,7 +37,7 @@ class GameInstance {
     void setNextHoldTime(double nextHoldTime);
 
     int getTimer();
-    bool decrementTimer();
+    void decrementTimer();
     void resetTimer();
 
     Board* getBoard();
