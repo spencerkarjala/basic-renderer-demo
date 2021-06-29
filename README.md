@@ -1,13 +1,5 @@
-# Fruity Tetris Studio
-
-This is the source for a Tetris/Falling Fruits crossover game. No steps have been missed as outlined in the assignment.
-
-- The game can be paused & unpaused with the **P** button.
-- The game can be restarted with the **R** button.
-- The game can be quit with the **Q** button.
-- Tetrominoes can be dropped using the **spacebar**.
-- The robot arms can be rotated at their pivot points using **WASD**.
-- The camera can be rotated using the **CTRL-LEFT** and **CTRL-RIGHT** keys.
+## Renderer Demo
+A simple demo of a renderer using modern OpenGL written for a Computer Graphics class.
 
 ## To run the game:
 1) Navigate to the root directory of the project.
