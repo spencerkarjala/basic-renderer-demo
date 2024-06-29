@@ -2,6 +2,7 @@
 #define SCENE_H
 
 #include <unordered_map>
+#include <string>
 #include "Camera.h"
 #include "WorldObject.h"
 
